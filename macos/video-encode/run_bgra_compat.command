@@ -3,9 +3,13 @@
 # Does NOT alter system-wide VideoToolbox, kexts, EFI, SIP, or installed Graphics.
 set -uo pipefail
 ROOT="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-frames="${1:-1}"
+codec="${1:-H264}"
+frames="${2:-1}"
+if [[ "$codec" != "H264" && "$codec" != "HEVC_SW" ]]; then
+  echo "Usage: bash run_bgra_compat.command H264|HEVC_SW [frames 1..180]" >&2;exit 2
+fi
 if [[ ! "$frames" =~ ^[0-9]+$ ]] || (( frames<1 || frames>180 )); then
-  echo "Usage: bash run_bgra_compat.command [frames 1..180]" >&2;exit 2
+  echo "Usage: bash run_bgra_compat.command H264|HEVC_SW [frames 1..180]" >&2;exit 2
 fi
 command -v xcrun >/dev/null || { echo "Requires Apple Command Line Tools" >&2;exit 2; }
 cd "$ROOT" || exit 2
@@ -16,9 +20,9 @@ cc=xcrun
   -framework Foundation -framework CoreMedia -framework CoreVideo -framework VideoToolbox \
   "$ROOT/wex_bgra_compat_encode.m" -o "$OUTPUT/wex_bgra_compat_encode" || exit 2
 log="$OUTPUT/bgraworkaround-$(date +%Y%m%d-%H%M%S).txt"
-echo "Application-level BGRA -> CPU NV12 -> VideoToolbox hardware H.264, frames=$frames"
+echo "Application-level BGRA -> CPU NV12 -> VideoToolbox ${codec}, frames=$frames"
 echo "This does NOT repair system-wide AVFPixelProcess; it avoids that code path in this test."
-"$OUTPUT/wex_bgra_compat_encode" H264 "$frames" 2>&1 | tee "$log"
+"$OUTPUT/wex_bgra_compat_encode" "$codec" "$frames" 2>&1 | tee "$log"
 status=${PIPESTATUS[0]}
 echo "Log: $log"
 exit "$status"

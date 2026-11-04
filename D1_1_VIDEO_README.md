@@ -13,7 +13,7 @@ Based on WhateverXe D (`experiment/a7a0-single-panel-clock-isolation`, commit `d
 
 **1. BGRA crash: working application-level bypass (candidate).** `wex_bgra_to_nv12.h` performs a CPU, limited-range Rec.709 8-bit conversion from BGRA to NV12/420v. `wex_bgra_compat_encode.m` generates BGRA input, converts it to NV12 and passes NV12 directly into `VTCompressionSessionEncodeFrame` with `RequireHardwareAcceleratedVideoEncoder=true`. This avoids the `AVFPixelProcess` BGRA conversion for applications that **integrate the compatibility helper**. It does not patch AppleGVA or solve BGRA crashes in other apps. The converter's C unit tests pass on a Linux host; the macOS encoding integration **has not been tested on the target laptop**.
 
-**2. HEVC: diagnostic, not a fake hardware driver.** `wex_encoder_inventory.m` enumerates VideoToolbox encoder registrations without starting a session. The actual HEVC hardware encoder is **not registered** on the target. We deliberately do not forge an `IOGVAHEVCEncodeCapabilities` property or advertise a non-functional encoder. A real fix would require confirming working HEVC encode in the user-space VA/AppleGVA bridge and implementing the missing registration/initialization path, with signed payloads and safety tests. That is **not implemented yet**.
+**2. HEVC: software fallback and diagnostics, not a fake hardware driver.** `wex_encoder_inventory.m` enumerates VideoToolbox encoder registrations without starting a session. The actual HEVC hardware encoder is **not registered** on the target. We deliberately do not forge an `IOGVAHEVCEncodeCapabilities` property or advertise a non-functional encoder. A real fix would require confirming working HEVC encode in the user-space VA/AppleGVA bridge and implementing the missing registration/initialization path, with signed payloads and safety tests. That is **not implemented yet**.
 
 ### Reference project findings
 
@@ -26,9 +26,15 @@ The referenced author's experimental H.264 VDENC changes are **not included in t
 ```bash
 cd macos/video-encode
 bash inspect_video_encoders.command
-bash run_bgra_compat.command 1
+bash run_bgra_compat.command H264 1
 # Only after the 1-frame test succeeds:
-bash run_bgra_compat.command 180
+bash run_bgra_compat.command H264 180
+```
+
+For **HEVC output without hardware encoding**, the opt-in `HEVC_SW` mode requests Apple's currently registered HEVC **software** encoder. It may be slower and cannot be counted as hardware support:
+
+```bash
+bash run_bgra_compat.command HEVC_SW 1
 ```
 
 **Warning:** This test invokes the native H.264 hardware encoder and could still crash while the new integration is unverified; save open work first. Output logs go to `macos/video-encode/output/`. It is not an installer or a system-wide fix.

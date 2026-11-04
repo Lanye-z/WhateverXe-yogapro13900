@@ -186,9 +186,9 @@ static void printEncoderProperty(VTCompressionSessionRef session) {
     if (idValue) CFRelease(idValue);
 }
 
-static int testCodec(CMVideoCodecType codec, const char *name, int frames) {
+static int testCodec(CMVideoCodecType codec, const char *name, int frames, BOOL requireHardware) {
     printf("\n========== %s HARDWARE ENCODE (1080p30) ==========\n", name);
-    printf("HARDWARE_REQUIRED = YES\n");
+    printf("HARDWARE_REQUIRED = %s\n", requireHardware ? "YES" : "NO (explicit software fallback)");
     printf("SOURCE_FORMAT = BGRA 1920 x 1080 @ 30 fps\n");
     printf("ENCODER_INPUT_FORMAT = NV12/420v (CPU BT.709 conversion, bypass GPU pixel transfer)\n");
     printf("REQUESTED_FRAMES = %d\n", frames);
@@ -196,8 +196,13 @@ static int testCodec(CMVideoCodecType codec, const char *name, int frames) {
     EncoderStats stats = {0};
     stats.expectedCodec = codec;
     pthread_mutex_init(&stats.lock, NULL);
-    NSDictionary *spec = @{
+    // HEVC_SW is a deliberately labelled software fallback: there is no
+    // registered hardware HEVC encoder on the tested A7A0 machine.
+    NSDictionary *spec = requireHardware ? @{
         (__bridge NSString *)kVTVideoEncoderSpecification_RequireHardwareAcceleratedVideoEncoder: @YES
+    } : @{
+        (__bridge NSString *)kVTVideoEncoderSpecification_RequireHardwareAcceleratedVideoEncoder: @NO,
+        (__bridge NSString *)kVTVideoEncoderSpecification_EncoderID: @"com.apple.videotoolbox.videoencoder.hevc.vcp"
     };
     NSDictionary *imageAttrs = @{
         (__bridge NSString *)kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange),
@@ -213,7 +218,7 @@ static int testCodec(CMVideoCodecType codec, const char *name, int frames) {
                                              NULL, encodedSampleCallback, &stats, &session);
     printf("SESSION_CREATE_STATUS = %d\n", (int)st);
     if (st != noErr || !session) {
-        printf("HARDWARE_USED = NO (hardware-required encoder could not be created)\n");
+        printf("ENCODER_CREATE_FAILED (required hardware=%s)\n", requireHardware ? "YES":"NO");
         printf("RESULT = HARDWARE_ENCODE_FAIL\n");
         if (session) { VTCompressionSessionInvalidate(session); CFRelease(session); }
         pthread_mutex_destroy(&stats.lock);
@@ -328,15 +333,20 @@ static int testCodec(CMVideoCodecType codec, const char *name, int frames) {
                outputWidth == kWidth && outputHeight == kHeight &&
                flushStatus == noErr && !frameCreateError && submissionStatus == noErr &&
                !hardwareNo);
-    if (hardwareYes && ok) printf("RESULT = HARDWARE_ENCODE_PASS\n");
-    else if (ok && !hardwareNo) printf("RESULT = HARDWARE_ENCODE_PASS_BY_REQUIRED_SESSION (hardware-used property unavailable)\n");
-    else printf("RESULT = HARDWARE_ENCODE_FAIL\n");
+    if (requireHardware) {
+        if (hardwareYes && ok) printf("RESULT = HARDWARE_ENCODE_PASS\n");
+        else if (ok && !hardwareNo) printf("RESULT = HARDWARE_ENCODE_PASS_BY_REQUIRED_SESSION (hardware-used property unavailable)\n");
+        else printf("RESULT = HARDWARE_ENCODE_FAIL\n");
+    } else {
+        if (ok && !hardwareYes) printf("RESULT = SOFTWARE_ENCODE_PASS (NOT hardware encode)\n");
+        else printf("RESULT = SOFTWARE_ENCODE_FAIL_OR_HW_MISMATCH\n");
+    }
 
     free(bgra);
     VTCompressionSessionInvalidate(session);
     CFRelease(session);
     pthread_mutex_destroy(&stats.lock);
-    return ok ? 0 : 1;
+    return (ok && (requireHardware ? !hardwareNo : !hardwareYes)) ? 0 : 1;
 }
 
 int main(int argc, const char *argv[]) {
@@ -344,13 +354,14 @@ int main(int argc, const char *argv[]) {
     setvbuf(stderr, NULL, _IONBF, 0);
     @autoreleasepool {
         if (argc != 3) {
-            fprintf(stderr, "Usage: %s H264|HEVC <frames 1..180>\n", argv[0]);
+            fprintf(stderr, "Usage: %s H264|HEVC_SW <frames 1..180>\n", argv[0]);
             return 2;
         }
         CMVideoCodecType codec;
         const char *codecName;
+        BOOL requireHardware=YES;
         if (strcmp(argv[1], "H264") == 0) { codec=kCMVideoCodecType_H264; codecName="H.264"; }
-        else if (strcmp(argv[1], "HEVC") == 0) { codec=kCMVideoCodecType_HEVC; codecName="HEVC"; }
+        else if (strcmp(argv[1], "HEVC_SW") == 0) { codec=kCMVideoCodecType_HEVC; codecName="HEVC (software fallback)"; requireHardware=NO; }
         else { fprintf(stderr, "Unknown codec: %s\n", argv[1]); return 2; }
         char *end = NULL;
         long count = strtol(argv[2], &end, 10);
@@ -360,6 +371,6 @@ int main(int argc, const char *argv[]) {
         printf("WEX D1.1 BGRA-to-NV12 app-level encoder compatibility, hardware required, codec=%s, frames=%ld\n", codecName, count);
         printf("This test does not modify EFI, Kexts, SIP or macOS settings.\n");
         printf("PROBE = BGRA frames converted on CPU to NV12 before VideoToolbox; system BGRA path unchanged.\n");
-        return testCodec(codec, codecName, (int)count);
+        return testCodec(codec, codecName, (int)count, requireHardware);
     }
 }
