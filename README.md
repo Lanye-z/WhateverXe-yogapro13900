@@ -1,6 +1,6 @@
 # WhateverXe A7A0 — D 版内屏单输出时钟隔离实验
 
-> **未通过实机验证。** Lenovo Yoga Pro 14s IRH8 / 82Y7，i9-13900H，8086:A7A0（rev 04），macOS Tahoe 26.7.1 (25G241)，内屏 eDP 3072×1920。此分支只用于独立 USB EFI 测试。
+> **实验性驱动：已有单台 A7A0 实机进入桌面且报告显存约 1.5 GB，但 Metal 运算、视频硬解、桌面稳定性和外接显示仍待系统检测。** Lenovo Yoga Pro 14s IRH8 / 82Y7，i9-13900H，8086:A7A0（rev 04），macOS Tahoe 26.7.1 (25G241)，内屏 eDP 3072×1920。此分支只用于独立 USB EFI 测试。
 
 ## 为什么制作 D 版
 
@@ -34,16 +34,16 @@ cd WhateverXe-yogapro13900
 bash build_D_on_macos.command
 ```
 
-也可以在 GitHub 中切换到本实验分支后使用 **Code → Download ZIP**，解压后执行 `bash build_D_on_macos.command`。
+也可以在 GitHub 中切换到本实验分支后使用 **Code → Download ZIP**，解压后执行 `bash build_D_on_macos.command`。仓库为私有时，下载仓库本身需要用户的 GitHub 登录权限。脚本仅下载公开上游源代码，且优先复用原 C 版 `work/` 缓存；缓存可用时不需要重新联网下载依赖。
 
 脚本执行：
 
 1. 克隆官方 **WhateverXe 0.7.0** 精确提交 `d0b7fb6275ca51fde088fa7e91595462bd457ec9`；下载固定版本的 MacKernelSDK 与 Lilu 1.7.2 开发文件。
-2. **按顺序只应用** `WhateverXe_A7A0_Diagnostic_0.7.0.patch`（已同时包含 A+ B）、`patches/0003-B-to-C-eDP-software-port-mode.patch`、`patches/0004-A7A0-single-panel-clock-isolation-EXPERIMENTAL.patch`。请不要另外重复应用 0001/0002。
+2. **按顺序只应用** `WhateverXe_A7A0_Diagnostic_0.7.0.patch`（已同时包含 A+ B）、`patches/0003-B-to-C-eDP-software-port-mode.patch`、`patches/0004-A7A0-single-panel-clock-isolation-EXPERIMENTAL.patch`、`patches/0005-D-test-adapters.patch`。请不要另外重复应用 0001/0002。
 3. 执行 `git diff --check`、上游 `python3 tools/test.py`、官方 RELEASE 编译及兼容版本检查。
 4. 将产物保存到 `OUTPUT_D/WhateverXe_A7A0_D_PanelOnly_0.7.0_RELEASE.zip`；完整已修改源码保存在本地 `work_D/WhateverXe/`，补丁合并后的完整 Diff 在 `OUTPUT_D/WhateverXe_A7A0_D_FULL_SOURCE_DIFF.patch`。
 
-仓库**保存了全部精确补丁和一键构建脚本**，但没有预先把上游全部源代码复制到 GitHub。脚本会下载固定提交，在本地保留完整源码，因此可以复现、编辑和二次构建。**尚未确认这份 D 版可以编译通过或在硬件上工作。**
+仓库**保存了全部精确补丁和一键构建脚本**，但没有预先把上游全部源代码复制到 GitHub。脚本会下载固定提交，在本地保留完整源码，因此可以复现、编辑和二次构建。本分支已经同步本地 D 版通过编译所需的两处数组类型修复以及 2 项上游测试适配；用户报告修正后版本进入桌面。**GitHub 分支的构建流程仍需独立运行验证，不能把本地运行结果当成 CI 验证。**
 
 ## 安全测试与排查
 
@@ -66,3 +66,11 @@ system_profiler SPDisplaysDataType
 优先比较 `WEXDiagDSinglePanelApplied` 是否为 Yes、`FB0: Hardware mode set failed` 是否消失以及屏幕是否能点亮。**即使能点亮，也不能直接宣称 Metal 和完整加速可用。**
 
 上游参考：[Issue #22](https://github.com/b00t0x/WhateverXe/issues/22) · [Issue #32](https://github.com/b00t0x/WhateverXe/issues/32)。
+
+## 2026-11-04 实机及构建进展
+
+- 使用之前的离线缓存构建包，最初 203/203 CPU 测试通过，RELEASE 编译随后在 D 版 `before[]` / `after[]` const 数组传给 `IORegistryEntry::setProperty` 时失败。现已在 `0004` 将它们改为 `uint32_t[]`。
+- 已新增 `0005-D-test-adapters.patch`，同步修改 `tests/fixtures/boot_argument_names.json` 和 `tests/adlp_fb_candidate.py` 的测试替身，使测试认得新启动参数及诊断属性。
+- 用户报告经上述修正构建的 D 版可成功进入桌面，显存显示大约 1500+ MB。屏幕启动照片包括 `TGL accelerator start returned 1`，但登录后存在一段白色桌面、迟缓加载的问题，仍需要检查 Metal、WindowServer、视频硬解与启动日志。
+- 照片里的 `com.apple.driver.IOVersatile` `OSBundleLibraries missing/invalid type` 是真实的独立 Kext 加载异常，目前不能认定其与 WhateverXe / 登录迟缓存在直接因果关系。
+- **重要**：GitHub Actions 或本分支本地脚本的编译状态不得等同于用户实机通过全部功能验证；正式多屏修复还没有完成。
