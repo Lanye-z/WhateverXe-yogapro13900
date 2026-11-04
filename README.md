@@ -29,3 +29,13 @@ Open [GitHub Actions](../../actions/workflows/diagnostic.yml) and run **Whatever
 Do **not** overwrite the current working EFI. Test the generated `WhateverXe.kext` on a separate USB OpenCore EFI with the rest of the boot stack unchanged. Neither building nor passing CPU tests confirms GPU acceleration or stable display initialization. If the display goes black, boot the original EFI.
 
 Related: [Issue #18](https://github.com/b00t0x/WhateverXe/issues/18), [Issue #22](https://github.com/b00t0x/WhateverXe/issues/22), [Issue #32](https://github.com/b00t0x/WhateverXe/issues/32).
+
+## A -> B original diff independently verified (2026-11-04)
+
+The user-supplied `WhateverXe_A_to_B_Diagnostic.diff` is a **single-file** change to `WhateverXe/kern_xe.cpp` (A to B). Its 18 source hunks exactly match the `kern_xe.cpp` section of this branch's `WhateverXe_A7A0_Diagnostic_0.7.0.patch` after normalizing absolute local file paths to relative paths: both have **18,029 bytes of identical hunk content**, FNV-1a32 `97429b6e`. No omitted A->B logic needs to be merged.
+
+The full B patch is upstream 0.7.0 + confirmed CTL2 bit 3 fix + these A->B diagnostics. The C build applies it, then applies only `patches/0003-B-to-C-eDP-software-port-mode.patch`. Do **not** reapply the user's A->B diff on top of the B patch, as that would duplicate the same source modifications.
+
+**Critical diagnostic collection:** `WEXDiagSSTPortFirstFailure`, `WEXDiagBootAdoption`, and `WEXDiagAcceleratorStartResult` were published under the **IORegistry root**, not `IGPU`. Read with `ioreg -p IOService -l -w0`, not `ioreg -r -n IGPU`.
+
+Real B hardware evidence: SST failure bit `512` = internal DDI A software port mode 0 instead of expected 1; FB original start returned Yes but WEX final accept returned No; IntelAccelerator original probe matched, and Apple's original start returned No. C adds a guarded one-condition port mode experiment; CPU tests and successful build cannot prove Metal.
