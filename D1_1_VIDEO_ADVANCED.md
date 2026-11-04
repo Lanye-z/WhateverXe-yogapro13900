@@ -98,3 +98,21 @@ Example, only if you are willing to reproduce the crash **once** to capture its 
 cd macos/video-encode
 bash collect_vphal_backtrace.command --i-accept-native-crash
 ```
+
+## 2026-11-05 LLDB crash confirmed — D1.1.3 output tightening
+
+LLDB successfully captured the **64×64 BGRA→NV12** transfer crash. Its stack exactly matches the previously observed direct-BGRA H.264 encode crash through `AppleGVA::AVFPixelProcess_PrepareToTransferImages`:
+
+```text
+Process stopped: EXC_BAD_ACCESS (code=1, address=0x8)
+rdi = 0x0
+rip = 0x1015fb6f3 (run-specific ASLR address)
+AppleIntelTGLGraphicsVADriver: movq %rdx, 0x8(%rdi)
+AppleIntelTGLGraphicsVADriver loaded base = 0x1014c8000
+Binary-relative instruction offset = 0x1336f3
+LLDB's printed unnamed-symbol offset = 195379 (identical in both observed crashes)
+```
+
+This proves the immediate fault is a **NULL pointer write to address 0x8 in the VA driver** during native pixel transfer, independent of an encoder session. The allocation or initialization mistake that made the pointer NULL is **not proven**. These addresses are tied to the exact installed Tahoe VADriver SHA256 `a972cdb7ddd56bcf38c3ab71e874b73efc34bc683d30e49f0a1a1919625a726d`; do not transplant a patch from another binary.
+
+The previous collection script printed the entire loaded-image table (377 entries) and appeared to hang at the last line. D1.1.3 filters the image lookup to the VA driver and TGLVA and explicitly kills the **crashed debuggee** after capturing diagnostic commands, allowing LLDB to exit. **The existing trace is sufficient; do not repeat the known-crashing test merely to try the shorter script.**

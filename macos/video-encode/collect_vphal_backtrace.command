@@ -21,14 +21,16 @@ xcrun clang -arch x86_64 -O0 -g -fobjc-arc -Wall -Wextra -Wno-unused-parameter \
 LOG="$OUT/vphal-lldb-64x64-$(date +%Y%m%d-%H%M%S).txt"
 echo "LOG=$LOG"
 echo "WARNING: This executes the known-crashing native pixel-transfer call."
-echo "Capturing registers, disassembly, ALL thread stacks and image base/slide."
+echo "Capturing registers, disassembly, thread stacks and ONLY VA driver images.\nThis run deliberately terminates the already-crashed probe after collecting the stack."
 # -k commands run only on crash; no need to type at the LLDB prompt.
 xcrun lldb --batch \
   -o 'run 64 64 bgra-nv12' \
   -k 'thread backtrace all' \
   -k 'register read rdi rsi rdx rcx rip' \
   -k 'disassemble -p -c 20' \
-  -k 'image list -o -f' \
+  -k 'image list -o -f AppleIntelTGLGraphicsVADriver' \
+  -k 'image list -o -f TGLVA' \
+  -k 'process kill' \
   -- "$OUT/wex_vphal_transfer_probe" 2>&1 | tee "$LOG"
 rc=${PIPESTATUS[0]}
 echo "LLDB_EXIT_STATUS=$rc" | tee -a "$LOG"
