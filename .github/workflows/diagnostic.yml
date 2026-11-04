@@ -51,6 +51,8 @@ jobs:
           git -C Source apply ../patches/0003-B-to-C-eDP-software-port-mode.patch
           git -C Source apply --check ../patches/0004-A7A0-single-panel-clock-isolation-EXPERIMENTAL.patch
           git -C Source apply ../patches/0004-A7A0-single-panel-clock-isolation-EXPERIMENTAL.patch
+          git -C Source apply --check ../patches/0005-D-test-adapters.patch
+          git -C Source apply ../patches/0005-D-test-adapters.patch
           git -C Source diff --check
           git -C Source diff > ../WhateverXe_A7A0_D_FULL_SOURCE_DIFF.patch
           mkdir -p Source/Lilu.kext/Contents/Resources
@@ -92,6 +94,7 @@ jobs:
           cp "$GITHUB_WORKSPACE/WhateverXe_A7A0_Diagnostic_0.7.0.patch" "$GITHUB_WORKSPACE/artifacts/"
           cp "$GITHUB_WORKSPACE/patches/0003-B-to-C-eDP-software-port-mode.patch" "$GITHUB_WORKSPACE/artifacts/"
           cp "$GITHUB_WORKSPACE/patches/0004-A7A0-single-panel-clock-isolation-EXPERIMENTAL.patch" "$GITHUB_WORKSPACE/artifacts/"
+          cp "$GITHUB_WORKSPACE/patches/0005-D-test-adapters.patch" "$GITHUB_WORKSPACE/artifacts/"
           cp "$GITHUB_WORKSPACE/WhateverXe_A7A0_D_FULL_SOURCE_DIFF.patch" "$GITHUB_WORKSPACE/artifacts/"
           cp build/tests/results.json "$GITHUB_WORKSPACE/artifacts/"
           cd "$GITHUB_WORKSPACE/artifacts"
