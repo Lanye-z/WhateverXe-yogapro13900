@@ -82,3 +82,19 @@ quit
 ```
 
 The backtrace plus loaded VA image address and SHA256 from `inspect_va_driver.command` are necessary before considering a byte-level VPHAL patch. Do **not** use unverified binary offsets from a different distribution.
+
+## 2026-11-05 Yoga D1.1.1 real-device results and D1.1.2 follow-up
+
+- `inventory` in the previous Bash script hit `args[@]: unbound variable` on macOS's old Bash 3.2 when `set -u` and the array was empty. **This was a script bug**, unrelated to the GPU; D1.1.2 uses `"$@"` instead.
+- HEVC workflow registration changes **nothing**: 0 HEVC HW entries before and after. HEVC HW-required property query returns **-12908**, and unrestricted property query selects `com.apple.videotoolbox.videoencoder.hevc.vcp`. The accelerator separately publishes `IOGVAHEVCEncodeCapabilities`, so adding the same property to EFI is not an established remedy.
+- **Driver fingerprint**: `/Library/GPUBundles/AppleIntelTGLGraphicsVADriver.bundle/Contents/MacOS/AppleIntelTGLGraphicsVADriver` SHA256 `a972cdb7ddd56bcf38c3ab71e874b73efc34bc683d30e49f0a1a1919625a726d`, UUID `00204000-0263-4092-B483-CC2544D26350`. This matches the WhateverXe Graphics v0.4.0 **Tahoe** payload hash in upstream `docs/payload-provenance.json`. The bundle passes `codesign --verify` and contains `@loader_path/TGLVA`. No evidence that a corrupted or mismatched Tahoe payload caused this.
+- **Crucial new isolation**: independent `VTPixelTransferSessionTransferImage` of **64×64 BGRA to NV12** crashed immediately after `STAGE=PIXEL_TRANSFER_BEGIN`, exit **139/SIGSEGV**, *without any VTCompressionSession or H.264 encoder*. This establishes a native pixel-transfer failure outside the encoder, but the precise instruction/NULL object requires LLDB. **Do not repeat the same crashing transfer without a diagnostic purpose**; no need to try 1080p.
+- Added `macos/video-encode/collect_vphal_backtrace.command` with a required explicit crash opt-in. It runs only the already-broken 64×64 case under LLDB and captures `thread backtrace all`, `register read`, `disassemble`, and `image list -o -f` in one log. This intentionally reproduces a driver crash; do not run in a production session or without saving work. The analysis can distinguish the null-sub-renderer context from another VPHAL problem and identify a binary-relative disassembly offset.
+- **No system-wide patch yet**. A safe driver-level binary fix must match this exact signed binary, avoid corrupting signatures, be delivered as an opt-in offline artifact with verified rollback, and be tested separately from the stable D EFI. HEVC hardware encode additionally needs a *real* provider; a fabricated list/capability property is not a fix.
+
+Example, only if you are willing to reproduce the crash **once** to capture its machine-specific call site:
+
+```bash
+cd macos/video-encode
+bash collect_vphal_backtrace.command --i-accept-native-crash
+```

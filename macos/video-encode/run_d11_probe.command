@@ -34,11 +34,15 @@ mode="${1:-}"
 case "$mode" in
   inventory|professional|properties)
     compile wex_hevc_discovery_probe.m wex_hevc_discovery_probe
-    args=()
-    [[ "$mode" == professional ]] && args+=(--professional)
-    [[ "$mode" == properties ]] && args+=(--properties)
+    # Bash 3.2 + set -u fails expanding an empty array (inventory mode).
+    # "$@" safely expands to zero arguments even with nounset enabled.
+    case "$mode" in
+      inventory) set -- ;;
+      professional) set -- --professional ;;
+      properties) set -- --properties ;;
+    esac
     LOG="$OUT/d11-hevc-${mode}-$(date +%Y%m%d-%H%M%S).txt"
-    "$OUT/wex_hevc_discovery_probe" "${args[@]}" 2>&1 | tee "$LOG"
+    "$OUT/wex_hevc_discovery_probe" "$@" 2>&1 | tee "$LOG"
     ret=${PIPESTATUS[0]}
     echo "LOG=$LOG"
     exit "$ret"
