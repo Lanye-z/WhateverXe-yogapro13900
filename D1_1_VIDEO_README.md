@@ -53,3 +53,12 @@ cc -std=c11 -Wall -Wextra -Werror tests/test_bgra_nv12.c -o /tmp/wex_bgra_test
 - Neither path introduces GPU reset, WindowServer stalls, or display regressions.
 
 **Current status:** D1.1 delivers a code-level app-side workaround plus HEVC registration diagnostics, **NOT** the two requested system-wide driver repairs. No claims of HEVC hardware encoding support or arbitrary-app BGRA repair are made.
+
+## 2026-11-04 D1.1 on-device results (Yoga A7A0, Tahoe 25G241)
+
+- `inspect_video_encoders.command`: H.264 HW registered (two GVA entries); HEVC **only SW** (`com.apple.videotoolbox.videoencoder.hevc.vcp`); `HEVC_HW_REGISTERED=NO`.
+- **Important**: IORegistry already advertises `IOGVAHEVCEncodeCapabilities` (profile 1, max encode level 183), but VideoToolbox still has *no registered HEVC hardware encoder*. Adding the same accelerator property is not a demonstrated fix; investigate AppleGVA/VA plugin discovery and matching instead.
+- BGRA source -> CPU BT.709 NV12 -> H.264 HW: one frame produced 196759 bytes, `HARDWARE_USED=YES`, no errors. 180/180 frames produced 34186663 bytes, zero callback errors/empty samples, `HARDWARE_USED=YES`, wall time 10.123 s (includes CPU generation + BGRA conversion). **App-level workaround passed, not system-wide VPHAL repair**.
+- BGRA source -> CPU NV12 -> explicitly selected `hevc.vcp` **software** encoder: 1/1 output frame, 198076 bytes, `RESULT=SOFTWARE_ENCODE_PASS`. The `UsingHardwareAcceleratedVideoEncoder` property query returned -12900/unknown, but this does **not** turn a software encoder into hardware; the code's diagnostic wording has been corrected.
+- Previously direct NV12 H.264 HW 180/180 passed. Previously direct NV12 HEVC **hardware-required** session creation failed (-12908). BGRA-direct H.264 crashes within `AppleIntelTGLGraphicsVADriver` / `AVFPixelProcess_PrepareToTransferImages`.
+- **No binary VA driver or EFI modifications in this branch.** Verify source compile and behavior on Mac; do not infer real-world screen recording or video export is fixed based on these isolated tests.
