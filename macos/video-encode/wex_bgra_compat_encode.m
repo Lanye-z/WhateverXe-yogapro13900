@@ -332,7 +332,7 @@ static int testCodec(CMVideoCodecType codec, const char *name, int frames, BOOL 
                outputBytes > 0 && errors == 0 && empty == 0 && wrong == 0 &&
                outputWidth == kWidth && outputHeight == kHeight &&
                flushStatus == noErr && !frameCreateError && submissionStatus == noErr &&
-               !hardwareNo);
+               (requireHardware ? !hardwareNo : !hardwareYes));
     if (requireHardware) {
         if (hardwareYes && ok) printf("RESULT = HARDWARE_ENCODE_PASS\n");
         else if (ok && !hardwareNo) printf("RESULT = HARDWARE_ENCODE_PASS_BY_REQUIRED_SESSION (hardware-used property unavailable)\n");
