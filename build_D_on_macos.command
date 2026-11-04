@@ -22,7 +22,7 @@ xcrun --find clang++ >/dev/null || { echo "Install Apple Command Line Tools: xco
 mkdir -p "$WORK" "$OUT"
 exec > >(tee "$OUT/build.log") 2>&1
 
-echo "=== Experimental WhateverXe D: pinned upstream + B diagnostics + C port mode + D optional panel-only ==="
+echo "=== WhateverXe D1.1: native source-first build (D eDP panel-only) ==="
 echo "Host: $(uname -sm)"
 echo "Source revision: $UPSTREAM_SHA"
 
@@ -88,25 +88,16 @@ if [[ ! -f "$LILU/Lilu/Headers/kern_api.hpp" ]]; then
   fi
 fi
 
-for p in \
-  "$ROOT/WhateverXe_A7A0_Diagnostic_0.7.0.patch" \
-  "$ROOT/patches/0003-B-to-C-eDP-software-port-mode.patch" \
-  "$ROOT/patches/0004-A7A0-single-panel-clock-isolation-EXPERIMENTAL.patch" \
-  "$ROOT/patches/0005-D-test-adapters.patch"
-do
-  if git -C "$SRC" apply --reverse --check "$p" >/dev/null 2>&1; then
-    echo "Already applied: $(basename "$p")"
-  else
-    echo "Applying $(basename "$p")"
-    git -C "$SRC" apply --check "$p"
-    git -C "$SRC" apply "$p"
-  fi
+# Source-first D1.1: replace pinned upstream files with reviewed complete source.
+# No git apply, no VA binary patching, no EFI/Graphics modification.
+for f in WhateverXe/kern_alderlake_n.hpp WhateverXe/kern_xe.cpp tests/adlp_fb_candidate.py tests/fixtures/boot_argument_names.json; do
+  test -s "$ROOT/src/$f" || { echo "Missing D1.1 full source: src/$f" >&2; exit 1; }
+  cp "$ROOT/src/$f" "$SRC/$f"
 done
 git -C "$SRC" diff --check
 grep -Fq 'checkKernelArgument("-wex-a7a0-panel-only")' "$SRC/WhateverXe/kern_xe.cpp"
-grep -Fq 'WEXDiagDSinglePanelApplied' "$SRC/WhateverXe/kern_xe.cpp"
 grep -Fq '"-wex-a7a0-panel-only": []' "$SRC/tests/fixtures/boot_argument_names.json"
-git -C "$SRC" diff > "$OUT/WhateverXe_A7A0_D_FULL_SOURCE_DIFF.patch"
+echo "D1.1 source overlay synchronized; no patch files applied."
 
 mkdir -p "$SRC/Lilu.kext/Contents/Resources"
 for item in Headers Library; do
@@ -129,7 +120,7 @@ python3 tools/check_compat_version.py build/RELEASE
 KEXT="$SRC/build/RELEASE/WhateverXe.kext"
 test -f "$KEXT/Contents/Info.plist"
 test -f "$KEXT/Contents/MacOS/WhateverXe"
-ZIP="$OUT/WhateverXe_A7A0_D_PanelOnly_0.7.0_RELEASE.zip"
+ZIP="$OUT/WhateverXe_A7A0_D1.1_Source_RELEASE.zip"
 ditto -c -k --keepParent "$KEXT" "$ZIP"
 unzip -t "$ZIP"
 {
@@ -143,5 +134,5 @@ unzip -t "$ZIP"
 } | tee "$OUT/BUILD_INFO.txt"
 
 echo "SUCCESS: $ZIP"
-echo "Patched source retained at $SRC"
+echo "Complete D1.1 source retained at $SRC"
 echo "WARNING: Kext is NOT installed; use a separate USB EFI. No hardware test was performed."

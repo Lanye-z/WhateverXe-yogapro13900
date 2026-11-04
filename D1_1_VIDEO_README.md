@@ -76,3 +76,5 @@ The former D EFI and Graphics install remain baseline. Earlier 180-frame BGRA->C
 [See research report](D1_1_4_VPHAL_RESEARCH.md). The 64x64 transfer and direct-BGRA encoder crash at the same `0x1336f3` NULL write. Reverse engineering of the original Apple Tiger Lake 16.0.32 Mach-O shows this NULL comes from a renderer subcomponent at `+0x910`. JulioNectar's independent `patch_vpnull2.py` targets **exactly** the same RVA and also guards `+0x920`.
 
 Added a **read-only strict SHA256+Mach-O+byte-signature+code-cave audit**, a separately gated *unsigned offline candidate* (never an installer), and read-only heuristic HEVC backend string inventory. The original driver passes the static guard tests; the **installed signed WEX Graphics v0.4.0 Tahoe payload still needs read-only preflight**. These research tools have not repaired BGRA system transfer or HEVC HW encoding, and the unsigned experimental binary must NOT be installed.
+
+D1.1 source-first policy: this file contains historical diagnostic data only; retired binary-patch scripts are not build inputs. See [README](README.md).
