@@ -1,41 +1,68 @@
-# WhateverXe for Lenovo Yoga Pro 14s IRH8 (82Y7), i9-13900H / A7A0
+# WhateverXe A7A0 — D 版内屏单输出时钟隔离实验
 
-Experimental, reproducible macOS x86_64 build based on upstream **b00t0x/WhateverXe 0.7.0**, commit `d0b7fb6275ca51fde088fa7e91595462bd457ec9`.
+> **未通过实机验证。** Lenovo Yoga Pro 14s IRH8 / 82Y7，i9-13900H，8086:A7A0（rev 04），macOS Tahoe 26.7.1 (25G241)，内屏 eDP 3072×1920。此分支只用于独立 USB EFI 测试。
 
-## Machine and known baseline
+## 为什么制作 D 版
 
-- Lenovo Yoga Pro 14s IRH8 / 82Y7; Intel Core i9-13900H; Intel Xe LP `8086:A7A0`, revision 04
-- Internal eDP 3072 × 1920; macOS Tahoe 26.7.1 (25G241)
-- WhateverXe Graphics 0.4.0; Lilu 1.7.3 loaded on the test machine
-- 60 MiB DVMT workaround configured on the test EFI
-- **Confirmed**: patch 0001 changes `N97NativeBootSource` from `InvalidDPSource(11)` to `Ready(1)`, and sets `WEXDisplay13BootReady`, `N97NativePreflight`, `N97NativeStartAllowed`, `N97NativeReservedGGTT` to Yes.
-- **Still broken with patch 0001 alone**: `AppleIntelFramebuffer@0/1/2` attach but the display stays under `.Display_boot`, `IntelAccelerator` is absent, VRAM 22 MB.
+- A：接受 eDP GOP `TRANS_DDI_FUNC_CTL2` bit 3；原生启动前置检查通过，但内屏仍留在 `.Display_boot`。
+- B：保留 A，并加入 `WEXDiag*` 诊断；发现 eDP `AppleIntelPort` 模式为 0，`display13SSTPort()` 要求 1。
+- C：在 B 上加入受条件保护的端口模式修复；在 **19:37 / 19:40** 两次 macOS 启动中，原生显卡驱动开始初始化，但出现 `FB0: Hardware mode set failed, err = 0xe00002d8`、`FB0 is not enabled`，用户观察到啰嗦模式后黑屏。
+- 上游 [Issue #22](https://github.com/b00t0x/WhateverXe/issues/22) 报告相同报错可能与多输出路径的 `adlnSetDualClock()` / `clockFaulted` 有关。**此机制在本机尚未被实机诊断直接证明。**
 
-## Source changes
+B 版诊断显示本机 `panel=0x01, dp=0x78, typeC=0x78, hdmi=0x02`。仅清除 DP/Type-C **不够**，`hdmi=2` 也会使 `multiOutputWiring` 保持为真。
 
-1. [`patches/0001-a7a0-edp-ctl2-bit3.patch`](patches/0001-a7a0-edp-ctl2-bit3.patch): proven, narrowly-scoped acceptance of firmware's `TRANS_DDI_FUNC_CTL2` bit 3 on the **internal eDP panel only**.
-2. [`patches/0002-edp-boot-port-mode-EXPERIMENTAL.patch`](patches/0002-edp-boot-port-mode-EXPERIMENTAL.patch): experimental, guarded eDP SST boot-port mode handoff from [upstream issue #22](https://github.com/b00t0x/WhateverXe/issues/22). **Not yet verified on A7A0.** This patch may cause a black screen; retain a working recovery EFI.
+## D 版新增改动
 
-Unlike an unpinned script, the exact upstream source revision and individual changes are committed here. GitHub Actions also attempts to push the entire patched upstream source tree onto branch `source/a7a0-ctl2-portmode-0.7.0` (if repository Actions grants `contents: write`). This source branch, once created, retains the full source code and its upstream history. The Actions artifact contains the compiled `WhateverXe.kext` ZIP plus a patch diff and checksums.
+`patches/0004-A7A0-single-panel-clock-isolation-EXPERIMENTAL.patch` 位于 `XE::display13BoardWiring()`：
 
-## Build
+- **必须在 USB EFI 的 boot-args 中显式添加 `-wex-a7a0-panel-only` 才会启用。** 不添加参数时保留 C 的布线行为。
+- 仅当 VBT 已描述有效、且恰好匹配 `panel=1, dp=0x78, typeC=0x78, hdmi=2` 时，将 `dp/typeC/hdmi` 清零，同时清零所有 `ddc[]` 引脚映射；再校验 `board.described()`、`selected()==1`、`multiOutputWiring()==false`。
+- 校验不通过则恢复原始布线；不更改显示寄存器、GPU MMIO、EU 数量或原生驱动内部时钟逻辑。
+- 设置 **IORegistry 根节点**诊断键 `WEXDiagDOriginalWiring`、`WEXDiagDResultWiring`、`WEXDiagDSinglePanelApplied`。这些属性仅在 D 版成功启动且启用 boot-arg 后可被读取；一次黑屏重启之后读取到的不是那次启动的数据。
+- 实验模式将**关闭由 WhateverXe 管理的所有外接显示输出**（USB-C DP / HDMI）。只用于验证内屏路径，**不是永久解决方案**。
 
-Open [GitHub Actions](../../actions/workflows/diagnostic.yml) and run **WhateverXe Yoga Pro A7A0 experimental build**. A push to `main` also triggers the build. A macOS 15 Intel runner fetches the official pinned source, MacKernelSDK and Lilu 1.7.2 development files; executes `tools/test.py`; compiles a RELEASE `WhateverXe.kext`; and uploads the ZIP.
+如果 D 版能点亮内屏并消除 `0xe00002d8`，下一步应排查 `adlnSetDualClock()` 的真正锁和时序问题，而不是永久关闭外接输出。
 
-`AppleIntelTGLGraphics` and `AppleIntelTGLGraphicsFramebuffer` are **not** embedded in this Kext ZIP. They must be separately provided by the installed WhateverXe Graphics package.
+## GitHub 下载后在本地 Mac 编译
 
-## Safety
+推荐使用 Intel macOS + Apple Command Line Tools：
 
-Do **not** overwrite the current working EFI. Test the generated `WhateverXe.kext` on a separate USB OpenCore EFI with the rest of the boot stack unchanged. Neither building nor passing CPU tests confirms GPU acceleration or stable display initialization. If the display goes black, boot the original EFI.
+```bash
+git clone --branch experiment/a7a0-single-panel-clock-isolation --single-branch \
+  https://github.com/Lanye-z/WhateverXe-yogapro13900.git
+cd WhateverXe-yogapro13900
+bash build_D_on_macos.command
+```
 
-Related: [Issue #18](https://github.com/b00t0x/WhateverXe/issues/18), [Issue #22](https://github.com/b00t0x/WhateverXe/issues/22), [Issue #32](https://github.com/b00t0x/WhateverXe/issues/32).
+也可以在 GitHub 中切换到本实验分支后使用 **Code → Download ZIP**，解压后执行 `bash build_D_on_macos.command`。
 
-## A -> B original diff independently verified (2026-11-04)
+脚本执行：
 
-The user-supplied `WhateverXe_A_to_B_Diagnostic.diff` is a **single-file** change to `WhateverXe/kern_xe.cpp` (A to B). Its 18 source hunks exactly match the `kern_xe.cpp` section of this branch's `WhateverXe_A7A0_Diagnostic_0.7.0.patch` after normalizing absolute local file paths to relative paths: both have **18,029 bytes of identical hunk content**, FNV-1a32 `97429b6e`. No omitted A->B logic needs to be merged.
+1. 克隆官方 **WhateverXe 0.7.0** 精确提交 `d0b7fb6275ca51fde088fa7e91595462bd457ec9`；下载固定版本的 MacKernelSDK 与 Lilu 1.7.2 开发文件。
+2. **按顺序只应用** `WhateverXe_A7A0_Diagnostic_0.7.0.patch`（已同时包含 A+ B）、`patches/0003-B-to-C-eDP-software-port-mode.patch`、`patches/0004-A7A0-single-panel-clock-isolation-EXPERIMENTAL.patch`。请不要另外重复应用 0001/0002。
+3. 执行 `git diff --check`、上游 `python3 tools/test.py`、官方 RELEASE 编译及兼容版本检查。
+4. 将产物保存到 `OUTPUT_D/WhateverXe_A7A0_D_PanelOnly_0.7.0_RELEASE.zip`；完整已修改源码保存在本地 `work_D/WhateverXe/`，补丁合并后的完整 Diff 在 `OUTPUT_D/WhateverXe_A7A0_D_FULL_SOURCE_DIFF.patch`。
 
-The full B patch is upstream 0.7.0 + confirmed CTL2 bit 3 fix + these A->B diagnostics. The C build applies it, then applies only `patches/0003-B-to-C-eDP-software-port-mode.patch`. Do **not** reapply the user's A->B diff on top of the B patch, as that would duplicate the same source modifications.
+仓库**保存了全部精确补丁和一键构建脚本**，但没有预先把上游全部源代码复制到 GitHub。脚本会下载固定提交，在本地保留完整源码，因此可以复现、编辑和二次构建。**尚未确认这份 D 版可以编译通过或在硬件上工作。**
 
-**Critical diagnostic collection:** `WEXDiagSSTPortFirstFailure`, `WEXDiagBootAdoption`, and `WEXDiagAcceleratorStartResult` were published under the **IORegistry root**, not `IGPU`. Read with `ioreg -p IOService -l -w0`, not `ioreg -r -n IGPU`.
+## 安全测试与排查
 
-Real B hardware evidence: SST failure bit `512` = internal DDI A software port mode 0 instead of expected 1; FB original start returned Yes but WEX final accept returned No; IntelAccelerator original probe matched, and Apple's original start returned No. C adds a guarded one-condition port mode experiment; CPU tests and successful build cannot prove Metal.
+**必须保留原始稳定 EFI，不要修改它。** 把新编译的 Kext 仅安装到独立 USB 测试 EFI，并在 USB EFI 的 `NVRAM -> Add -> 7C436110-AB2A-4BBB-A880-FE41995C9F82 -> boot-args` 中加入：
+
+```text
+-wex-a7a0-panel-only
+```
+
+同时保留原有需要的启动参数。没有此参数时，**D 实验不执行，行为近似 C 版，仍可能在启动时黑屏**。
+
+如果能够进入 macOS，可用只读命令：
+
+```bash
+ioreg -p IOService -l -w0 | grep -E 'WEXDiagD|WEXDiagSSTPort|WEXDiagBootAdoption|N97FramebufferStartAccepted'
+kmutil showloaded | grep -E 'WhateverXe|AppleIntelTGLGraphics'
+system_profiler SPDisplaysDataType
+```
+
+优先比较 `WEXDiagDSinglePanelApplied` 是否为 Yes、`FB0: Hardware mode set failed` 是否消失以及屏幕是否能点亮。**即使能点亮，也不能直接宣称 Metal 和完整加速可用。**
+
+上游参考：[Issue #22](https://github.com/b00t0x/WhateverXe/issues/22) · [Issue #32](https://github.com/b00t0x/WhateverXe/issues/32)。
