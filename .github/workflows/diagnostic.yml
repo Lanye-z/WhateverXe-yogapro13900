@@ -1,11 +1,15 @@
-name: WhateverXe A7A0 diagnostic build
+name: WhateverXe A7A0 C: B diagnostics plus eDP port-mode fix
 
 on:
+  push:
+    branches:
+      - main
+      - build/a7a0-ctl2-edp-portmode-070
   pull_request:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write  # Allow a manual run to publish a fully patched source snapshot
 
 jobs:
   diagnostic:
@@ -37,14 +41,17 @@ jobs:
           ref: 1.7.2
           path: Lilu
           persist-credentials: false
-      - name: Apply diagnostics on the official tag
+      - name: Apply B diagnostics then targeted C eDP software port mode
         shell: bash
         run: |
           set -euo pipefail
           test "$(git -C Source rev-parse HEAD)" = d0b7fb6275ca51fde088fa7e91595462bd457ec9
           git -C Source apply --check ../WhateverXe_A7A0_Diagnostic_0.7.0.patch
           git -C Source apply ../WhateverXe_A7A0_Diagnostic_0.7.0.patch
+          git -C Source apply --check ../patches/0003-B-to-C-eDP-software-port-mode.patch
+          git -C Source apply ../patches/0003-B-to-C-eDP-software-port-mode.patch
           git -C Source diff --check
+          git -C Source diff > ../WhateverXe_A7A0_C_FULL_SOURCE_DIFF.patch
           mkdir -p Source/Lilu.kext/Contents/Resources
           ln -s "$GITHUB_WORKSPACE/Lilu/Lilu/Headers" Source/Lilu.kext/Contents/Resources/Headers
           ln -s "$GITHUB_WORKSPACE/Lilu/Lilu/Library" Source/Lilu.kext/Contents/Resources/Library
@@ -54,6 +61,22 @@ jobs:
       - name: Official RELEASE build
         working-directory: Source
         run: python3 tools/build.py --release --sdk "$GITHUB_WORKSPACE/MacKernelSDK" --output build/RELEASE
+      - name: Preserve complete patched upstream source in a separate branch
+        if: github.event_name == 'workflow_dispatch'
+        continue-on-error: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git -C Source add WhateverXe/kern_alderlake_n.hpp WhateverXe/kern_xe.cpp
+          git -C Source -c user.name="github-actions[bot]" \
+            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -m "Yoga Pro A7A0 0.7.0 C: B diagnostics and guarded eDP port mode"
+          git -C Source push \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            "HEAD:refs/heads/source/a7a0-0.7.0-C-BDiag-PortMode"
+
       - name: Validate Compat version and package WhateverXe only
         shell: bash
         run: |
@@ -63,16 +86,18 @@ jobs:
           test -f build/RELEASE/WhateverXe.kext/Contents/Info.plist
           test -f build/RELEASE/WhateverXe.kext/Contents/MacOS/WhateverXe
           mkdir -p "$GITHUB_WORKSPACE/artifacts"
-          ditto -c -k --keepParent build/RELEASE/WhateverXe.kext "$GITHUB_WORKSPACE/artifacts/WhateverXe_A7A0_Diagnostic_0.7.0.zip"
-          unzip -t "$GITHUB_WORKSPACE/artifacts/WhateverXe_A7A0_Diagnostic_0.7.0.zip"
+          ditto -c -k --keepParent build/RELEASE/WhateverXe.kext "$GITHUB_WORKSPACE/artifacts/WhateverXe_A7A0_C_BDiag_PortMode_EXPERIMENTAL.zip"
+          unzip -t "$GITHUB_WORKSPACE/artifacts/WhateverXe_A7A0_C_BDiag_PortMode_EXPERIMENTAL.zip"
           cp "$GITHUB_WORKSPACE/WhateverXe_A7A0_Diagnostic_0.7.0.patch" "$GITHUB_WORKSPACE/artifacts/"
+          cp "$GITHUB_WORKSPACE/patches/0003-B-to-C-eDP-software-port-mode.patch" "$GITHUB_WORKSPACE/artifacts/"
+          cp "$GITHUB_WORKSPACE/WhateverXe_A7A0_C_FULL_SOURCE_DIFF.patch" "$GITHUB_WORKSPACE/artifacts/"
           cp build/tests/results.json "$GITHUB_WORKSPACE/artifacts/"
           cd "$GITHUB_WORKSPACE/artifacts"
-          shasum -a 256 WhateverXe_A7A0_Diagnostic_0.7.0.zip WhateverXe_A7A0_Diagnostic_0.7.0.patch > SHA256SUMS
+          shasum -a 256 WhateverXe_A7A0_C_BDiag_PortMode_EXPERIMENTAL.zip *.patch > SHA256SUMS
       - name: Upload diagnostic package
         uses: actions/upload-artifact@v4
         with:
-          name: WhateverXe-A7A0-diagnostic
+          name: WhateverXe-A7A0-C-BDiag-PortMode
           path: artifacts/*
           if-no-files-found: error
       - name: Upload test logs if build fails
