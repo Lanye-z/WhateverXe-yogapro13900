@@ -10,7 +10,7 @@
 #include "wex_bgra_to_nv12.h"
 
 // D1.1 BGRA app-level compatibility ENCODE test. This does not modify any system file.
-// H.264 and HEVC are independently tested with a REQUIRED hardware encoder.
+// H.264 requires hardware; HEVC_SW explicitly selects the registered software encoder.
 // We verify that the encoder returns real compressed sample buffers, not just
 // that VideoToolbox advertises hardware support.
 
@@ -187,7 +187,7 @@ static void printEncoderProperty(VTCompressionSessionRef session) {
 }
 
 static int testCodec(CMVideoCodecType codec, const char *name, int frames, BOOL requireHardware) {
-    printf("\n========== %s HARDWARE ENCODE (1080p30) ==========\n", name);
+    printf("\n========== %s ENCODE (1080p30) ==========\n", name);
     printf("HARDWARE_REQUIRED = %s\n", requireHardware ? "YES" : "NO (explicit software fallback)");
     printf("SOURCE_FORMAT = BGRA 1920 x 1080 @ 30 fps\n");
     printf("ENCODER_INPUT_FORMAT = NV12/420v (CPU BT.709 conversion, bypass GPU pixel transfer)\n");
@@ -219,7 +219,7 @@ static int testCodec(CMVideoCodecType codec, const char *name, int frames, BOOL 
     printf("SESSION_CREATE_STATUS = %d\n", (int)st);
     if (st != noErr || !session) {
         printf("ENCODER_CREATE_FAILED (required hardware=%s)\n", requireHardware ? "YES":"NO");
-        printf("RESULT = HARDWARE_ENCODE_FAIL\n");
+        printf("RESULT = %s\n", requireHardware ? "HARDWARE_ENCODE_FAIL" : "SOFTWARE_ENCODE_FAIL");
         if (session) { VTCompressionSessionInvalidate(session); CFRelease(session); }
         pthread_mutex_destroy(&stats.lock);
         return 1;
@@ -241,7 +241,7 @@ static int testCodec(CMVideoCodecType codec, const char *name, int frames, BOOL 
     OSStatus prepStatus = VTCompressionSessionPrepareToEncodeFrames(session);
     printf("PREPARE_STATUS = %d\n", (int)prepStatus);
     if (prepStatus != noErr) {
-        printf("RESULT = HARDWARE_ENCODE_FAIL\n");
+        printf("RESULT = %s\n", requireHardware ? "HARDWARE_ENCODE_FAIL" : "SOFTWARE_ENCODE_FAIL");
         VTCompressionSessionInvalidate(session);
         CFRelease(session);
         pthread_mutex_destroy(&stats.lock);
@@ -300,7 +300,8 @@ static int testCodec(CMVideoCodecType codec, const char *name, int frames, BOOL 
                        !CFBooleanGetValue((CFBooleanRef)hwValue));
     if (hardwareYes) printf("HARDWARE_USED = YES (query OSStatus %d)\n", (int)hwStatus);
     else if (hardwareNo) printf("HARDWARE_USED = NO (query OSStatus %d)\n", (int)hwStatus);
-    else printf("HARDWARE_USED = UNKNOWN (query OSStatus %d; hardware-required session was created)\n", (int)hwStatus);
+    else printf("HARDWARE_USED = UNKNOWN (query OSStatus %d; %s)\n", (int)hwStatus,
+                requireHardware ? "hardware-required session was created" : "explicit HEVC software encoder selected");
     if (hwValue) CFRelease(hwValue);
 
     pthread_mutex_lock(&stats.lock);
@@ -368,7 +369,8 @@ int main(int argc, const char *argv[]) {
         if (!end || *end || count < 1 || count > 180) {
             fprintf(stderr, "Frame count must be between 1 and 180.\n"); return 2;
         }
-        printf("WEX D1.1 BGRA-to-NV12 app-level encoder compatibility, hardware required, codec=%s, frames=%ld\n", codecName, count);
+        printf("WEX D1.1 BGRA-to-NV12 app-level encoder compatibility, %s, codec=%s, frames=%ld\n",
+               requireHardware ? "hardware required" : "explicit software encoder", codecName, count);
         printf("This test does not modify EFI, Kexts, SIP or macOS settings.\n");
         printf("PROBE = BGRA frames converted on CPU to NV12 before VideoToolbox; system BGRA path unchanged.\n");
         return testCodec(codec, codecName, (int)count, requireHardware);
