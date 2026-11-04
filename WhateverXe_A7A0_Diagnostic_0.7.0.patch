@@ -1,0 +1,37 @@
+diff --git a/WhateverXe/kern_alderlake_n.hpp b/WhateverXe/kern_alderlake_n.hpp
+--- a/WhateverXe/kern_alderlake_n.hpp
++++ b/WhateverXe/kern_alderlake_n.hpp
+@@ -239,8 +239,8 @@ inline bool dpSource(const DisplayReadout &boot,unsigned pipe,unsigned ddi,const Display13TC::Boot *tc=nullptr,bool panel=false) {
+     // payload-allocation bit. Firmware may leave bit8 set on an SST GOP;
+     // preserve it and include it in the unchanged-source check, never clear it
+     // on an enabled transcoder or infer an MST transport from that bit alone.
+     return (trans&0xFF700000U)==(0x82000000U|((ddi+1)<<27)) &&
+-        !(trans&((1U<<15)|(1U<<9))) && !ctl2 &&
++        !(trans&((1U<<15)|(1U<<9))) && !(ctl2&~(panel?(1U<<3):0U)) &&
+         (lanes==1 || lanes==2 || lanes==4) && ((buf>>1)&7)==lanes-1 &&
+         (buf&(typeC && tc->ownershipOptional?0x80000080U:0x800000C0U))==
+             (typeC && !tc->ownershipOptional?0x80000040U:0x80000000U) &&
+
+diff --git a/WhateverXe/kern_xe.cpp b/WhateverXe/kern_xe.cpp
+--- a/WhateverXe/kern_xe.cpp
++++ b/WhateverXe/kern_xe.cpp
+@@ -8481,6 +8481,19 @@ void XE::wrapAlderLakeNSetupWorkLoop(IOService *controller,IOWorkLoop *workLoop)
+                 const auto ddi=c.bridge.bootPort;
+                 const bool dp=ddi<7 && (callbackXE->adlnOutputWiring.links()&(1U<<ddi));
+                 bool linked=!dp;
++                // Experimental Yoga Pro 13900H test: adopt firmware's internal eDP boot port
++                // if the inherited SST port mode is still zero (WhateverXe issue #22).
++                // Exact class, DDI and access checks prevent touching unrelated ports.
++                // Port mode 1 matches the donor display-boot adoption sequence.
++                if(dp && ddi<2 && (callbackXE->adlnOutputWiring.panel&(1U<<ddi)) &&
++                   port && port->getMetaClass()->getClassSize()>=0x6B0 &&
++                   Display13FBMemory::field<uint32_t>(port,0x550)==0 &&
++                   Display13FBMemory::field<uint32_t>(port,0x120)==ddi &&
++                   Display13FBMemory::field<void *>(port,0x578)==c.access) {
++                    if(callbackXE->display13TCBaseMode)
++                        reinterpret_cast<uint32_t (*)(OSObject *,uint32_t)>(callbackXE->display13TCBaseMode)(port,1);
++                    else *reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(port)+0x550)=1;
++                }
+                 if(dp && display13SSTPort(port)) {
+                     Display13FBBootIO io{c.map};auto &boot=c.displayScratch;AlderLakeN::readDisplay(io,true,boot);
+                     if(ddi>=3) {
