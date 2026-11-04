@@ -1,3 +1,9 @@
+# D1.1: A7A0 video encode compatibility experiments
+
+> **Important:** This is NOT a complete GPU/video driver repair. The working D kernel/EFI remains unchanged. Application-level CPU BGRA-to-NV12 conversion is provided to bypass the H.264 pixel-transfer crash in integrated applications; HEVC hardware encode is unregistered and NOT yet fixed. See [D1.1 video details](D1_1_VIDEO_README.md). Do not install experimental JulioNectar binary patches or overwrite your known-good EFI.
+
+---
+
 # WhateverXe A7A0 — D 版内屏单输出时钟隔离实验
 
 > **实验性驱动：已有单台 A7A0 实机进入桌面且报告显存约 1.5 GB，但 Metal 运算、视频硬解、桌面稳定性和外接显示仍待系统检测。** Lenovo Yoga Pro 14s IRH8 / 82Y7，i9-13900H，8086:A7A0（rev 04），macOS Tahoe 26.7.1 (25G241)，内屏 eDP 3072×1920。此分支只用于独立 USB EFI 测试。
