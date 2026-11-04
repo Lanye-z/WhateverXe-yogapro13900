@@ -1,0 +1,84 @@
+name: WhateverXe A7A0 diagnostic build
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    runs-on: macos-15-intel
+    timeout-minutes: 30
+    steps:
+      - name: Check out diagnostic patch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check out official WhateverXe 0.7.0
+        uses: actions/checkout@v4
+        with:
+          repository: b00t0x/WhateverXe
+          ref: d0b7fb6275ca51fde088fa7e91595462bd457ec9
+          path: Source
+          persist-credentials: false
+      - name: Check out pinned MacKernelSDK
+        uses: actions/checkout@v4
+        with:
+          repository: acidanthera/MacKernelSDK
+          ref: 05094e5e88cec7caedbfb35e8449ed0db94bf95b
+          path: MacKernelSDK
+          persist-credentials: false
+      - name: Check out Lilu 1.7.2 development files
+        uses: actions/checkout@v4
+        with:
+          repository: acidanthera/Lilu
+          ref: 1.7.2
+          path: Lilu
+          persist-credentials: false
+      - name: Apply diagnostics on the official tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C Source rev-parse HEAD)" = d0b7fb6275ca51fde088fa7e91595462bd457ec9
+          git -C Source apply --check ../WhateverXe_A7A0_Diagnostic_0.7.0.patch
+          git -C Source apply ../WhateverXe_A7A0_Diagnostic_0.7.0.patch
+          git -C Source diff --check
+          mkdir -p Source/Lilu.kext/Contents/Resources
+          ln -s "$GITHUB_WORKSPACE/Lilu/Lilu/Headers" Source/Lilu.kext/Contents/Resources/Headers
+          ln -s "$GITHUB_WORKSPACE/Lilu/Lilu/Library" Source/Lilu.kext/Contents/Resources/Library
+      - name: Official CPU tests
+        working-directory: Source
+        run: python3 tools/test.py
+      - name: Official RELEASE build
+        working-directory: Source
+        run: python3 tools/build.py --release --sdk "$GITHUB_WORKSPACE/MacKernelSDK" --output build/RELEASE
+      - name: Validate Compat version and package WhateverXe only
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd Source
+          python3 tools/check_compat_version.py build/RELEASE
+          test -f build/RELEASE/WhateverXe.kext/Contents/Info.plist
+          test -f build/RELEASE/WhateverXe.kext/Contents/MacOS/WhateverXe
+          mkdir -p "$GITHUB_WORKSPACE/artifacts"
+          ditto -c -k --keepParent build/RELEASE/WhateverXe.kext "$GITHUB_WORKSPACE/artifacts/WhateverXe_A7A0_Diagnostic_0.7.0.zip"
+          unzip -t "$GITHUB_WORKSPACE/artifacts/WhateverXe_A7A0_Diagnostic_0.7.0.zip"
+          cp "$GITHUB_WORKSPACE/WhateverXe_A7A0_Diagnostic_0.7.0.patch" "$GITHUB_WORKSPACE/artifacts/"
+          cp build/tests/results.json "$GITHUB_WORKSPACE/artifacts/"
+          cd "$GITHUB_WORKSPACE/artifacts"
+          shasum -a 256 WhateverXe_A7A0_Diagnostic_0.7.0.zip WhateverXe_A7A0_Diagnostic_0.7.0.patch > SHA256SUMS
+      - name: Upload diagnostic package
+        uses: actions/upload-artifact@v4
+        with:
+          name: WhateverXe-A7A0-diagnostic
+          path: artifacts/*
+          if-no-files-found: error
+      - name: Upload test logs if build fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostic-test-logs
+          path: Source/build/tests/*
+          if-no-files-found: ignore
