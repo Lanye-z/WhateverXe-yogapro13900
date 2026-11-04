@@ -1,6 +1,9 @@
 name: WhateverXe A7A0 C: B diagnostics plus eDP port-mode fix
 
 on:
+  push:
+    branches:
+      - build/a7a0-ctl2-edp-portmode-070
   pull_request:
   workflow_dispatch:
 
