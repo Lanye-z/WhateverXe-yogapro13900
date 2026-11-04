@@ -19,6 +19,7 @@ bash run_d11_probe.command inventory
 
 # 2. Process-local professional-workflow registration and re-enumeration.
 #    This is a DIFFERENTIAL test: no system-wide registration/configuration.
+#    This Apple API loads professional workflow plug-ins, NOT necessarily a GPU VA encoder.
 bash run_d11_probe.command professional
 
 # 3. Encoder property negotiation, without creating a compression session.
@@ -64,7 +65,7 @@ The separate GitHub Action `video-encode-d11.yml` compiles these macOS Objective
 
 ### Additional observation about apparent HEVC capability
 
-`IOGVAHEVCEncodeCapabilities` is an accelerator property, not a VideoToolbox encoder implementation. The absence of an HW entry from `VTCopyVideoEncoderList()` despite the property is a **measured mismatch**; its cause is unproven (potentially discovery/registration or actual missing provider support). The Apple API `VTRegisterProfessionalVideoWorkflowVideoEncoders` is included as a bounded test, not assumed to fix it.
+`IOGVAHEVCEncodeCapabilities` is an accelerator property, not a VideoToolbox encoder implementation. The absence of an HW entry from `VTCopyVideoEncoderList()` despite the property is a **measured mismatch**; its cause is unproven (potentially discovery/registration or actual missing provider support). Apple documents `VTRegisterProfessionalVideoWorkflowVideoEncoders` as loading encoders from the client's `/Library/Video/Professional Video Workflow Plug-Ins/` directory. This is a bounded negative/control test, **not** an established route for registering the Tiger Lake GPU VA codec.
 
 ### Capturing a crashing native transfer with LLDB
 
