@@ -109,8 +109,17 @@ grep -Fq '"-wex-a7a0-panel-only": []' "$SRC/tests/fixtures/boot_argument_names.j
 git -C "$SRC" diff > "$OUT/WhateverXe_A7A0_D_FULL_SOURCE_DIFF.patch"
 
 mkdir -p "$SRC/Lilu.kext/Contents/Resources"
-ln -s "$LILU/Lilu/Headers" "$SRC/Lilu.kext/Contents/Resources/Headers"
-ln -s "$LILU/Lilu/Library" "$SRC/Lilu.kext/Contents/Resources/Library"
+for item in Headers Library; do
+  link="$SRC/Lilu.kext/Contents/Resources/$item"
+  if [[ -L "$link" ]]; then
+    [[ -d "$link" ]] || { echo "Broken Lilu $item symlink" >&2; exit 1; }
+  elif [[ ! -e "$link" ]]; then
+    ln -s "$LILU/Lilu/$item" "$link"
+  else
+    echo "Existing non-symlink Lilu $item; stopping rather than overwriting." >&2
+    exit 1
+  fi
+done
 
 cd "$SRC"
 python3 tools/test.py
