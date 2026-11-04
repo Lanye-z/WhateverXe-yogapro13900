@@ -1,0 +1,22 @@
+diff --git a/WhateverXe/kern_xe.cpp b/WhateverXe/kern_xe.cpp
+--- a/WhateverXe/kern_xe.cpp
++++ b/WhateverXe/kern_xe.cpp
+@@ -3887,5 +3887,17 @@ Display13OutputWiring XE::display13BoardWiring(IOService *provider) {
+     Display13OutputWiring board;
+-    if(!property)board=XELP::VBT::display13Fixed(firmwarePorts,Display13OutputWiring::Physical,xeProfile.family);
++    if(!property) {
++        board=XELP::VBT::display13Fixed(firmwarePorts,Display13OutputWiring::Physical,xeProfile.family);
++        // EXPERIMENTAL A7A0 D: known exact VBT wiring from B diagnostic:
++        // panel=0x1, dp=0x78, typeC=0x78, hdmi=0x2.
++        // Test the native single-output clock path without changing GOP/MMIO or
++        // weakening the physical safety checks. External display outputs are disabled.
++        if(board.panel==1U && board.dp==120U && board.typeC==120U && board.hdmi==2U) {
++            uint32_t original[] {1U,board.panel,board.dp,board.typeC,board.hdmi};
++            IORegistryEntry::getRegistryRoot()->setProperty("WEXDiagDOriginalWiring",original,sizeof(original));
++            board.dp=0;board.typeC=0;board.hdmi=0;
++            IORegistryEntry::getRegistryRoot()->setProperty("WEXDiagDSinglePanelApplied",true);
++        }
++    }
+     else {
+         // Preserve the older ADL-N Combo property contract. It cannot select TC.
+         if(adlpDisplaySelected)return {};
