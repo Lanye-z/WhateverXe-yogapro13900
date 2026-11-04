@@ -1,3 +1,5 @@
+> **ARCHIVED / 已封存（2026-11-05）**：此文档保留各阶段原始研究叙述，可能包含已经移除的补丁路径或过时的“待实机测试”措辞。请以 [仓库根 README](README.md) 的最终实测状态、当前 `src/` 源码和 [Graphics 基线](graphics/BASELINE.md) 为准。当前不再进行 D1.1 独立补丁开发；完整封存快照在 `archive/D1.1-2026-11-05`。**BGRA 系统级崩溃与 HEVC 硬编仍未修复。**
+
 # D1.1 — video encode compatibility experiment (NOT a system-wide driver fix)
 
 Based on WhateverXe D (`experiment/a7a0-single-panel-clock-isolation`, commit `d7350766`). **Do not replace your working D EFI/Graphics setup.** D1.1 experiments are kept separate from kernel/framebuffer patches.
