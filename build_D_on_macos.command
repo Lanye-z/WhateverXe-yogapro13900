@@ -18,10 +18,7 @@ for c in git python3 xcrun ditto unzip shasum tee; do
   command -v "$c" >/dev/null || { echo "Missing tool: $c" >&2; exit 1; }
 done
 xcrun --find clang++ >/dev/null || { echo "Install Apple Command Line Tools: xcode-select --install" >&2; exit 1; }
-[[ ! -e "$WORK" && ! -e "$OUT" ]] || {
-  echo "Existing work_D or OUTPUT_D: keep your previous results, or rename them before a new build." >&2
-  exit 1
-}
+# Keep partially downloaded source and cached dependencies for retries.
 mkdir -p "$WORK" "$OUT"
 exec > >(tee "$OUT/build.log") 2>&1
 
@@ -29,26 +26,86 @@ echo "=== Experimental WhateverXe D: pinned upstream + B diagnostics + C port mo
 echo "Host: $(uname -sm)"
 echo "Source revision: $UPSTREAM_SHA"
 
-git clone https://github.com/b00t0x/WhateverXe.git "$SRC"
-git -C "$SRC" checkout --detach "$UPSTREAM_SHA"
-test "$(git -C "$SRC" rev-parse HEAD)" = "$UPSTREAM_SHA"
-git clone https://github.com/acidanthera/MacKernelSDK.git "$SDK"
-git -C "$SDK" checkout --detach "$SDK_SHA"
-test "$(git -C "$SDK" rev-parse HEAD)" = "$SDK_SHA"
-git clone --branch 1.7.2 --depth 1 https://github.com/acidanthera/Lilu.git "$LILU"
+# Prefer C/D caches already present on this Mac. Network is only a fallback.
+CACHE_SOURCE=""
+CACHE_SDK=""
+CACHE_LILU=""
+shopt -s nullglob
+CANDIDATES=()
+if [[ -n "${WEX_CACHE_WORK:-}" ]]; then CANDIDATES+=("$WEX_CACHE_WORK"); fi
+CANDIDATES+=("$HOME"/Downloads/WhateverXe_A7A0_C_OneClick_Builder*/work)
+CANDIDATES+=("$HOME"/Downloads/WhateverXe_A7A0_D_OneClick_Builder*/work)
+CANDIDATES+=("$HOME"/Desktop/WhateverXe_A7A0_C_OneClick_Builder*/work)
+for candidate in "${CANDIDATES[@]}"; do
+  [[ -d "$candidate" ]] || continue
+  if [[ -z "$CACHE_SOURCE" && -d "$candidate/Source/.git" ]] &&
+     [[ "$(git -C "$candidate/Source" rev-parse HEAD 2>/dev/null || true)" == "$UPSTREAM_SHA" ]]; then
+    CACHE_SOURCE="$candidate/Source"
+  fi
+  if [[ -z "$CACHE_SDK" && -d "$candidate/MacKernelSDK/.git" ]] &&
+     [[ "$(git -C "$candidate/MacKernelSDK" rev-parse HEAD 2>/dev/null || true)" == "$SDK_SHA" ]]; then
+    CACHE_SDK="$candidate/MacKernelSDK"
+  fi
+  if [[ -z "$CACHE_LILU" && -f "$candidate/Lilu/Lilu/Headers/kern_api.hpp" &&
+        -f "$candidate/Lilu/Lilu/Library/plugin_start.cpp" ]]; then
+    CACHE_LILU="$candidate/Lilu"
+  fi
+done
+
+if [[ ! -d "$SRC/.git" ]]; then
+  if [[ -n "$CACHE_SOURCE" ]]; then
+    echo "Reusing C source locally: $CACHE_SOURCE"
+    git clone --local --no-hardlinks "$CACHE_SOURCE" "$SRC"
+  else
+    echo "No local source cache; downloading public upstream source"
+    git clone https://github.com/b00t0x/WhateverXe.git "$SRC"
+  fi
+  git -C "$SRC" checkout --detach "$UPSTREAM_SHA"
+fi
+test "$(git -C "$SRC" rev-parse HEAD)" = "$UPSTREAM_SHA" || {
+  echo "Existing source is not the pinned upstream commit. Aborting." >&2; exit 1;
+}
+if [[ ! -d "$SDK/.git" ]]; then
+  if [[ -n "$CACHE_SDK" ]]; then
+    echo "Reusing pinned MacKernelSDK cache: $CACHE_SDK"
+    ln -s "$CACHE_SDK" "$SDK"
+  else
+    echo "No SDK cache; downloading public MacKernelSDK"
+    git clone https://github.com/acidanthera/MacKernelSDK.git "$SDK"
+    git -C "$SDK" checkout --detach "$SDK_SHA"
+  fi
+fi
+test "$(git -C "$SDK" rev-parse HEAD)" = "$SDK_SHA" || {
+  echo "SDK revision mismatch." >&2; exit 1;
+}
+if [[ ! -f "$LILU/Lilu/Headers/kern_api.hpp" ]]; then
+  if [[ -n "$CACHE_LILU" ]]; then
+    echo "Reusing Lilu headers/library: $CACHE_LILU"
+    ln -s "$CACHE_LILU" "$LILU"
+  else
+    echo "No Lilu cache; downloading public Lilu 1.7.2"
+    git clone --branch 1.7.2 --depth 1 https://github.com/acidanthera/Lilu.git "$LILU"
+  fi
+fi
 
 for p in \
   "$ROOT/WhateverXe_A7A0_Diagnostic_0.7.0.patch" \
   "$ROOT/patches/0003-B-to-C-eDP-software-port-mode.patch" \
-  "$ROOT/patches/0004-A7A0-single-panel-clock-isolation-EXPERIMENTAL.patch"
+  "$ROOT/patches/0004-A7A0-single-panel-clock-isolation-EXPERIMENTAL.patch" \
+  "$ROOT/patches/0005-D-test-adapters.patch"
 do
-  echo "Applying $(basename "$p")"
-  git -C "$SRC" apply --check "$p"
-  git -C "$SRC" apply "$p"
+  if git -C "$SRC" apply --reverse --check "$p" >/dev/null 2>&1; then
+    echo "Already applied: $(basename "$p")"
+  else
+    echo "Applying $(basename "$p")"
+    git -C "$SRC" apply --check "$p"
+    git -C "$SRC" apply "$p"
+  fi
 done
 git -C "$SRC" diff --check
 grep -Fq 'checkKernelArgument("-wex-a7a0-panel-only")' "$SRC/WhateverXe/kern_xe.cpp"
 grep -Fq 'WEXDiagDSinglePanelApplied' "$SRC/WhateverXe/kern_xe.cpp"
+grep -Fq '"-wex-a7a0-panel-only": []' "$SRC/tests/fixtures/boot_argument_names.json"
 git -C "$SRC" diff > "$OUT/WhateverXe_A7A0_D_FULL_SOURCE_DIFF.patch"
 
 mkdir -p "$SRC/Lilu.kext/Contents/Resources"
