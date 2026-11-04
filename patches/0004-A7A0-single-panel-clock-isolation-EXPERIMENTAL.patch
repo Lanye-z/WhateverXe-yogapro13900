@@ -10,7 +10,7 @@ diff --git a/WhateverXe/kern_xe.cpp b/WhateverXe/kern_xe.cpp
 +        // reported by B diagnostics; do not touch registers or bypass safety checks.
 +        if(checkKernelArgument("-wex-a7a0-panel-only")) {
 +            auto *root=IORegistryEntry::getRegistryRoot();
-+            const uint32_t before[] {1U,board.panel,board.dp,board.typeC,board.hdmi,board.selected()};
++            uint32_t before[] {1U,board.panel,board.dp,board.typeC,board.hdmi,board.selected()};
 +            root->setProperty("WEXDiagDOriginalWiring",before,sizeof(before));
 +            bool applied=false;
 +            if(board.described() && board.panel==1U && board.dp==0x78U &&
@@ -23,7 +23,7 @@ diff --git a/WhateverXe/kern_xe.cpp b/WhateverXe/kern_xe.cpp
 +                    applied=true;
 +                else board=saved;
 +            }
-+            const uint32_t after[] {1U,board.panel,board.dp,board.typeC,board.hdmi,board.selected()};
++            uint32_t after[] {1U,board.panel,board.dp,board.typeC,board.hdmi,board.selected()};
 +            root->setProperty("WEXDiagDResultWiring",after,sizeof(after));
 +            root->setProperty("WEXDiagDSinglePanelApplied",applied);
 +        }
