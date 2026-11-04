@@ -11,7 +11,7 @@ Based on WhateverXe D (`experiment/a7a0-single-panel-clock-isolation`, commit `d
 
 ## D1.1 changes and realistic scope
 
-**1. BGRA crash: working application-level bypass (candidate).** `wex_bgra_to_nv12.h` performs a CPU, limited-range Rec.709 8-bit conversion from BGRA to NV12/420v. `wex_bgra_compat_encode.m` generates BGRA input, converts it to NV12 and passes NV12 directly into `VTCompressionSessionEncodeFrame` with `RequireHardwareAcceleratedVideoEncoder=true`. This avoids the `AVFPixelProcess` BGRA conversion for applications that **integrate the compatibility helper**. It does not patch AppleGVA or solve BGRA crashes in other apps. The converter's C unit tests pass on a Linux host; the macOS encoding integration **has not been tested on the target laptop**.
+**1. BGRA crash: working application-level bypass (candidate).** `wex_bgra_to_nv12.h` performs a CPU, limited-range Rec.709 8-bit conversion from BGRA to NV12/420v. `wex_bgra_compat_encode.m` generates BGRA input, converts it to NV12 and passes NV12 directly into `VTCompressionSessionEncodeFrame` with `RequireHardwareAcceleratedVideoEncoder=true`. This avoids the `AVFPixelProcess` BGRA conversion for applications that **integrate the compatibility helper**. It does not patch AppleGVA or solve BGRA crashes in other apps. The converter's C unit tests pass; the macOS integration **has now passed on the target laptop**: 1/1 and 180/180 H.264 HW samples via BGRA->CPU NV12, with zero callback errors. This remains application-scoped and does not repair system VideoToolbox.
 
 **2. HEVC: software fallback and diagnostics, not a fake hardware driver.** `wex_encoder_inventory.m` enumerates VideoToolbox encoder registrations without starting a session. The actual HEVC hardware encoder is **not registered** on the target. We deliberately do not forge an `IOGVAHEVCEncodeCapabilities` property or advertise a non-functional encoder. A real fix would require confirming working HEVC encode in the user-space VA/AppleGVA bridge and implementing the missing registration/initialization path, with signed payloads and safety tests. That is **not implemented yet**.
 
@@ -37,7 +37,7 @@ For **HEVC output without hardware encoding**, the opt-in `HEVC_SW` mode request
 bash run_bgra_compat.command HEVC_SW 1
 ```
 
-**Warning:** This test invokes the native H.264 hardware encoder and could still crash while the new integration is unverified; save open work first. Output logs go to `macos/video-encode/output/`. It is not an installer or a system-wide fix.
+**Warning:** This test invokes the native H.264 hardware encoder; past runs passed but future native-driver crashes are still possible. Save open work first. Output logs go to `macos/video-encode/output/`. It is not an installer or a system-wide fix.
 
 For the pure C converter test on a development machine:
 
@@ -62,3 +62,11 @@ cc -std=c11 -Wall -Wextra -Werror tests/test_bgra_nv12.c -o /tmp/wex_bgra_test
 - BGRA source -> CPU NV12 -> explicitly selected `hevc.vcp` **software** encoder: 1/1 output frame, 198076 bytes, `RESULT=SOFTWARE_ENCODE_PASS`. The `UsingHardwareAcceleratedVideoEncoder` property query returned -12900/unknown, but this does **not** turn a software encoder into hardware; the code's diagnostic wording has been corrected.
 - Previously direct NV12 H.264 HW 180/180 passed. Previously direct NV12 HEVC **hardware-required** session creation failed (-12908). BGRA-direct H.264 crashes within `AppleIntelTGLGraphicsVADriver` / `AVFPixelProcess_PrepareToTransferImages`.
 - **No binary VA driver or EFI modifications in this branch.** Verify source compile and behavior on Mac; do not infer real-world screen recording or video export is fixed based on these isolated tests.
+
+## D1.1.1 driver-level localization tools
+
+See [D1_1_VIDEO_ADVANCED.md](D1_1_VIDEO_ADVANCED.md). Added native-source probes for (a) process-local professional HEVC encoder registration vs current encoder-list registration, (b) encoder property negotiation without submitting frames, and (c) **isolated VTPixelTransferSession** BGRA->NV12 and NV12->NV12 to localize the crashing VPHAL path independently from H.264 encoding. An installed VA bundle fingerprint tool collects hash/UUID/signing/dependency metadata without modifying it.
+
+These are diagnostic code paths, **not** new VA binaries, fake HEVC HW entries or EFI changes. The 1080p native pixel transfer has an explicit opt-in crash warning. The separate GitHub workflow `video-encode-d11.yml` checks compile/shell/C tests on a macOS Intel runner but cannot validate graphics hardware.
+
+The former D EFI and Graphics install remain baseline. Earlier 180-frame BGRA->CPU NV12->H.264 HW pass and HEVC-SW-only registration remain unchanged as observed facts.
