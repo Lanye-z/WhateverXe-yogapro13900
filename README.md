@@ -16,11 +16,11 @@ Experimental, reproducible macOS x86_64 build based on upstream **b00t0x/Whateve
 1. [`patches/0001-a7a0-edp-ctl2-bit3.patch`](patches/0001-a7a0-edp-ctl2-bit3.patch): proven, narrowly-scoped acceptance of firmware's `TRANS_DDI_FUNC_CTL2` bit 3 on the **internal eDP panel only**.
 2. [`patches/0002-edp-boot-port-mode-EXPERIMENTAL.patch`](patches/0002-edp-boot-port-mode-EXPERIMENTAL.patch): experimental, guarded eDP SST boot-port mode handoff from [upstream issue #22](https://github.com/b00t0x/WhateverXe/issues/22). **Not yet verified on A7A0.** This patch may cause a black screen; retain a working recovery EFI.
 
-Unlike an unpinned script, the exact upstream source revision and individual changes are committed here. GitHub Actions also attempts to push the entire patched upstream source tree onto branch `source/a7a0-ctl2-portmode-0.7.0` (if repository Actions grants `contents: write`). This source branch, once created, retains the full source code and its upstream history. The Actions artifact contains the compiled `WhateverXe.kext` ZIP plus a patch diff and checksums.
+Unlike an unpinned script, the exact upstream source revision and individual changes are committed here. The complete modified source is reproducible from the exact pinned upstream commit plus these committed patches. The repository currently tracks the **patches**, not a full copy of the upstream source tree. The existing CI workflow does not yet publish a source-snapshot branch. On a successful run, its artifact includes the compiled `WhateverXe.kext` ZIP, the combined patch and checksums.
 
 ## Build
 
-Open [GitHub Actions](../../actions/workflows/diagnostic.yml) and run **WhateverXe Yoga Pro A7A0 experimental build**. A push to `main` also triggers the build. A macOS 15 Intel runner fetches the official pinned source, MacKernelSDK and Lilu 1.7.2 development files; executes `tools/test.py`; compiles a RELEASE `WhateverXe.kext`; and uploads the ZIP.
+Open [GitHub Actions](../../actions/workflows/diagnostic.yml) and run **WhateverXe Yoga Pro A7A0 experimental build**. The existing workflow also triggers on a pull request targeting `main`. Its current build uses the combined patch file in the pull request branch. A macOS 15 Intel runner fetches the official pinned source, MacKernelSDK and Lilu 1.7.2 development files; executes `tools/test.py`; compiles a RELEASE `WhateverXe.kext`; and uploads the ZIP.
 
 `AppleIntelTGLGraphics` and `AppleIntelTGLGraphicsFramebuffer` are **not** embedded in this Kext ZIP. They must be separately provided by the installed WhateverXe Graphics package.
 
