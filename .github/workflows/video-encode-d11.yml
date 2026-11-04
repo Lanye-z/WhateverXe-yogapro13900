@@ -41,6 +41,11 @@ jobs:
               "macos/video-encode/$src" -o "/tmp/${src%.m}"
             file "/tmp/${src%.m}"
           done
+      - name: Validate VPHAL byte-guard geometry and strict source gates
+        shell: bash
+        run: |
+          python3 -m unittest discover -s tests -p 'test_vphal_guard_offline.py' -v
+          python3 -m py_compile macos/video-encode/vphal_guard_offline.py macos/video-encode/hevc_va_static_audit.py
       - name: Never perform native driver initialization in CI
         shell: bash
         run: |

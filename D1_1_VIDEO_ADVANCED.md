@@ -116,3 +116,7 @@ LLDB's printed unnamed-symbol offset = 195379 (identical in both observed crashe
 This proves the immediate fault is a **NULL pointer write to address 0x8 in the VA driver** during native pixel transfer, independent of an encoder session. The allocation or initialization mistake that made the pointer NULL is **not proven**. These addresses are tied to the exact installed Tahoe VADriver SHA256 `a972cdb7ddd56bcf38c3ab71e874b73efc34bc683d30e49f0a1a1919625a726d`; do not transplant a patch from another binary.
 
 The previous collection script printed the entire loaded-image table (377 entries) and appeared to hang at the last line. D1.1.3 filters the image lookup to the VA driver and TGLVA and explicitly kills the **crashed debuggee** after capturing diagnostic commands, allowing LLDB to exit. **The existing trace is sufficient; do not repeat the known-crashing test merely to try the shorter script.**
+
+## D1.1.4 follow-up
+
+The exact NULL slot is confirmed: `0x1336ec movq 0x910(%rcx),%rdi` -> `0x1336f3 movq %rdx,0x8(%rdi)`, with LLDB `rdi=0`. Reference [JulioNectar patch_vpnull2.py](https://github.com/JulioNectar/Hackintosh-XPS13Plus-IrisXe-Tahoe/blob/main/macos/vadriver/encode-experimental/patch_vpnull2.py) covers this exact file offset and handles +0x920 too. See [D1.1.4 research report](D1_1_4_VPHAL_RESEARCH.md), including strict read-only preflight, cave checks, and HEVC binary strings; do not replace the installed signed VA driver.

@@ -70,3 +70,9 @@ See [D1_1_VIDEO_ADVANCED.md](D1_1_VIDEO_ADVANCED.md). Added native-source probes
 These are diagnostic code paths, **not** new VA binaries, fake HEVC HW entries or EFI changes. The 1080p native pixel transfer has an explicit opt-in crash warning. The separate GitHub workflow `video-encode-d11.yml` checks compile/shell/C tests on a macOS Intel runner but cannot validate graphics hardware.
 
 The former D EFI and Graphics install remain baseline. Earlier 180-frame BGRA->CPU NV12->H.264 HW pass and HEVC-SW-only registration remain unchanged as observed facts.
+
+## D1.1.4: exact VPHAL crash-site research and offline safety checks
+
+[See research report](D1_1_4_VPHAL_RESEARCH.md). The 64x64 transfer and direct-BGRA encoder crash at the same `0x1336f3` NULL write. Reverse engineering of the original Apple Tiger Lake 16.0.32 Mach-O shows this NULL comes from a renderer subcomponent at `+0x910`. JulioNectar's independent `patch_vpnull2.py` targets **exactly** the same RVA and also guards `+0x920`.
+
+Added a **read-only strict SHA256+Mach-O+byte-signature+code-cave audit**, a separately gated *unsigned offline candidate* (never an installer), and read-only heuristic HEVC backend string inventory. The original driver passes the static guard tests; the **installed signed WEX Graphics v0.4.0 Tahoe payload still needs read-only preflight**. These research tools have not repaired BGRA system transfer or HEVC HW encoding, and the unsigned experimental binary must NOT be installed.
