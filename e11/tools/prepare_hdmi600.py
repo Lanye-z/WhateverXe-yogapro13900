@@ -75,9 +75,15 @@ def main():
         raise SystemExit("REFUSED: unexpected patch count")
     cpp.write_text(patched)
     shutil.copyfile(ROOT/"e11/kern_yoga_hdmi600.hpp",source/"WhateverXe/kern_yoga_hdmi600.hpp")
+    fixture=source/"tests/fixtures/boot_argument_names.json"
+    registry=fixture.read_text()
+    first='  "-wex-dsi-audit": [],\n'
+    if registry.count(first)!=1:
+        raise SystemExit("REFUSED: boot argument registry changed")
+    fixture.write_text(registry.replace(first,'  "-wex-yoga-hdmi600": [],\n'+first,1))
     subprocess.run(["git","-C",str(source),"diff","--check"],check=True)
     changed=set(shell("git","-C",str(source),"diff","--name-only").splitlines())
-    if changed!={"WhateverXe/kern_alderlake_n.hpp","WhateverXe/kern_xe.cpp"}:
+    if changed!={"WhateverXe/kern_alderlake_n.hpp","WhateverXe/kern_xe.cpp","tests/fixtures/boot_argument_names.json"}:
         raise SystemExit("REFUSED: unexpected edits "+repr(changed))
     print("E1.1-HDMI600 prepared; E1.0 display and GVA behavior unchanged by default.")
     print("IMPORTANT: 4K60 hardware stability and HDMI colors are NOT validated.")
