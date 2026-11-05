@@ -1,19 +1,20 @@
-# WhateverXe A7A0 — E1.0 多输出实验分支（2026-11-05）
+# WhateverXe A7A0 — E1.2 HDMI RGB8 experiment (2026-11-05)
 
-> **实验状态：E1.0 未经 Yoga 实机验证。** 当前分支以已封存的 D1.1 为起点，但运行时采用 Issue #38 作者的 `acer/current` 多屏源码，仅保留 D1.1 的 `CTL2 bit 3` eDP 判断修改。D1.1 以及 `archive/D1.1-2026-11-05` 没有改动。
+This branch is derived from E1.1-HDMI600 commit
+91629bd10c5d40f41a6df76e8daf96a87ab0ed07.
 
-详细设计、测试顺序、风险与故障回退：**[E1.0_README.md](e/E1.0_README.md)**。
+**E1.2 only adds offline EDID colour override tooling and tests.**
+It does not alter the E1.1 WhateverXe kernel code, install a driver,
+or claim a physical Yoga A7A0 colour fix. Do not overwrite the
+daily-use D1.1, E1.0 or E1.1 recovery/test EFIs.
 
-## 一键源码构建（只构建，不安装）
+Start here: [E1.2 EDID RGB8 README](e12/E1.2_RGB8_README.md).
 
-```bash
-git clone --branch E1.0 --single-branch https://github.com/Lanye-z/WhateverXe-yogapro13900.git
-cd WhateverXe-yogapro13900
-bash build_E_on_macos.command
-```
+Earlier milestones:
+- [E1.1 HDMI600 opt-in experiment](e11/E1.1_HDMI600_README.md)
+- [E1.0 multi-output integration](e/E1.0_README.md)
+- [D1.1 preserved release](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/archive/D1.1-2026-11-05)
 
-只有 macOS + Apple 开发工具可编译 Kext。GitHub Actions 的 `E1.0 A7A0 multi-output experimental Kext` 工作流可在 macOS Intel Runner 编译，成功后上传 ZIP。
-
-**首次测试必须使用单独的 USB 测试 EFI、删除 D 专属 `-wex-a7a0-panel-only` 参数，不得覆盖现有稳定 EFI 或更改 Graphics 0.4.0。**
-
-历史 D1.1 研究与视频诊断材料仍保留在本分支，**不参与 E 版编译**；原始封存状态请见 [archive/D1.1-2026-11-05](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/archive/D1.1-2026-11-05)。
+WhateverXe upstream colour reports:
+[Issue #40](https://github.com/b00t0x/WhateverXe/issues/40),
+[Issue #41](https://github.com/b00t0x/WhateverXe/issues/41).
