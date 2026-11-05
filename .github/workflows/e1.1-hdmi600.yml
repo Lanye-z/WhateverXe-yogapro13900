@@ -1,0 +1,96 @@
+name: E1.1 Yoga HDMI600 guarded experimental Kext
+on:
+  push:
+    branches:
+      - 'experiment/E1.1-HDMI600'
+    paths:
+      - 'e11/**'
+      - '.github/workflows/e1.1-hdmi600.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-build:
+    runs-on: macos-15-intel
+    timeout-minutes: 45
+    steps:
+      - name: Checkout isolated branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout pinned upstream acer/current
+        uses: actions/checkout@v4
+        with:
+          repository: Thatisjigen/WhateverXe
+          ref: f7b9bf2229d323e37e8b1dfb87182f005eb7a277
+          path: Source
+          persist-credentials: false
+      - name: Checkout pinned MacKernelSDK
+        uses: actions/checkout@v4
+        with:
+          repository: acidanthera/MacKernelSDK
+          ref: 05094e5e88cec7caedbfb35e8449ed0db94bf95b
+          path: MacKernelSDK
+          persist-credentials: false
+      - name: Checkout Lilu 1.7.2
+        uses: actions/checkout@v4
+        with:
+          repository: acidanthera/Lilu
+          ref: 1.7.2
+          path: Lilu
+          persist-credentials: false
+      - name: Prepare pinned E1.0 and default-off Display13 HDMI patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile e11/tools/prepare_hdmi600.py
+          python3 e11/tools/prepare_hdmi600.py Source
+          git -C Source diff --check
+          mkdir -p Source/Lilu.kext/Contents/Resources
+          ln -s "$GITHUB_WORKSPACE/Lilu/Lilu/Headers" Source/Lilu.kext/Contents/Resources/Headers
+          ln -s "$GITHUB_WORKSPACE/Lilu/Lilu/Library" Source/Lilu.kext/Contents/Resources/Library
+      - name: Test donor byte pattern, mismatch rejection and minimal replacement
+        shell: bash
+        run: |
+          set -euo pipefail
+          clang++ -std=c++17 -O1 -g -fsanitize=address,undefined -I Source/WhateverXe e11/tools/test_hdmi600.cpp -o /tmp/test_hdmi600
+          /tmp/test_hdmi600
+          grep -q 'WEXYogaHDMI600Ready' Source/WhateverXe/kern_xe.cpp
+      - name: Run upstream CPU and mock tests
+        working-directory: Source
+        run: python3 tools/test.py
+      - name: Build native RELEASE and check binary compatibility
+        working-directory: Source
+        run: |
+          python3 tools/build.py --release --sdk "$GITHUB_WORKSPACE/MacKernelSDK" --output build/RELEASE
+          python3 tools/check_compat_version.py build/RELEASE
+      - name: Package Kext only, manifest and reviewed diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEXT=Source/build/RELEASE/WhateverXe.kext
+          test -s "$KEXT/Contents/MacOS/WhateverXe"
+          mkdir -p dist
+          ditto -c -k --keepParent "$KEXT" dist/WhateverXe_A7A0_E1.1_HDMI600_Experimental_RELEASE.zip
+          unzip -t dist/WhateverXe_A7A0_E1.1_HDMI600_Experimental_RELEASE.zip
+          git -C Source diff -- WhateverXe/kern_xe.cpp WhateverXe/kern_alderlake_n.hpp > dist/E1.1_HDMI600_REVIEWED_DIFF.patch
+          cp e11/E1.1_HDMI600_README.md dist/
+          cp Source/build/tests/results.json dist/source-tests.json
+          {
+            echo "Baseline E1.0=bbbbf3c876ae8dfe8e9ba81064b3641f72830beb"
+            echo "Upstream=f7b9bf2229d323e37e8b1dfb87182f005eb7a277"
+            echo "Experiment=default OFF -wex-yoga-hdmi600 Display13 only"
+            echo "Graphics=existing signed 0.4.0; not packaged or modified"
+            echo "WARNING=NOT VALIDATED ON PHYSICAL YOGA"
+            xcrun dwarfdump --uuid "$KEXT/Contents/MacOS/WhateverXe"
+          } > dist/BUILD_INFO.txt
+          (cd dist && shasum -a 256 WhateverXe_A7A0_E1.1_HDMI600_Experimental_RELEASE.zip > SHA256SUMS)
+      - name: Upload isolated experimental artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WhateverXe-A7A0-E1.1-HDMI600-Experimental
+          path: dist/*
+          retention-days: 30
+          if-no-files-found: error
