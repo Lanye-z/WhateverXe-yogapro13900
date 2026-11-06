@@ -1,0 +1,123 @@
+name: Yoga Video C - guarded dual VA property restoration
+
+on:
+  push:
+    branches:
+      - experiment/main-video-accel-c
+    paths:
+      - 'e15/**'
+      - '.github/workflows/yoga-video-c.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-video-c:
+    runs-on: macos-15-intel
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout pinned E multi-output donor
+        uses: actions/checkout@v4
+        with:
+          repository: Thatisjigen/WhateverXe
+          ref: f7b9bf2229d323e37e8b1dfb87182f005eb7a277
+          path: Source
+          persist-credentials: false
+      - name: Checkout pinned MacKernelSDK
+        uses: actions/checkout@v4
+        with:
+          repository: acidanthera/MacKernelSDK
+          ref: 05094e5e88cec7caedbfb35e8449ed0db94bf95b
+          path: MacKernelSDK
+          persist-credentials: false
+      - name: Checkout Lilu 1.7.2
+        uses: actions/checkout@v4
+        with:
+          repository: acidanthera/Lilu
+          ref: 1.7.2
+          path: Lilu
+          persist-credentials: false
+
+      - name: Verify pinned main integration and guarded Video C overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile e15/tools/prepare_video_c.py
+          python3 -m unittest discover -s e12/tests -v
+          python3 e15/tools/prepare_video_c.py Source
+          git -C Source diff --check
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path("Source/WhateverXe/kern_xe.cpp").read_text()
+          assert s.count('checkKernelArgument("-wex-yoga-video-c")')==1
+          assert s.count('that->removeProperty("IOGVAScaler")')==1
+          assert s.count('that->removeProperty("IOVARendererID")')==1
+          assert 'callbackXE->adlpDisplaySelected && !videoCPreserve && that->getProperty("IOGVAScaler")' in s
+          assert 'callbackXE->adlpDisplaySelected && !videoCPreserve' in s
+          assert 'videoCPci->configRead16(0x02)==0xA7A0' in s
+          assert 'videoCRenderer->unsigned32BitValue()==0x1080080' in s
+          assert 'WEXYogaRGB8Last' in s
+          assert 'WEXYogaHDMI600Requested' in s
+          assert 'WEXYogaVideoCScalerPresent' in s
+          print("VIDEO_C_OVERLAY_CHECK=PASS, flag default off and both keys guarded")
+          PY
+          mkdir -p Source/Lilu.kext/Contents/Resources
+          ln -s "$GITHUB_WORKSPACE/Lilu/Lilu/Headers" Source/Lilu.kext/Contents/Resources/Headers
+          ln -s "$GITHUB_WORKSPACE/Lilu/Lilu/Library" Source/Lilu.kext/Contents/Resources/Library
+
+      - name: Test existing HDMI600 and native RGB8 patches
+        shell: bash
+        run: |
+          set -euo pipefail
+          clang++ -std=c++17 -O1 -g -fsanitize=address,undefined -I Source/WhateverXe \
+            e13/tests/test_rgb8.cpp -o /tmp/yoga_video_c_rgb8
+          /tmp/yoga_video_c_rgb8
+          clang++ -std=c++17 -O1 -g -fsanitize=address,undefined -I Source/WhateverXe \
+            e11/tools/test_hdmi600.cpp -o /tmp/yoga_video_c_hdmi600
+          /tmp/yoga_video_c_hdmi600
+
+      - name: Run full pinned upstream source tests
+        working-directory: Source
+        run: python3 tools/test.py
+
+      - name: Build RELEASE Kext only
+        working-directory: Source
+        run: |
+          python3 tools/build.py --release --sdk "$GITHUB_WORKSPACE/MacKernelSDK" --output build/RELEASE
+          python3 tools/check_compat_version.py build/RELEASE
+
+      - name: Package test Kext, source diff and checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          KEXT=Source/build/RELEASE/WhateverXe.kext
+          test -s "$KEXT/Contents/MacOS/WhateverXe"
+          ditto -c -k --keepParent "$KEXT" dist/WhateverXe_Yoga_A7A0_Video_C_TEST_RELEASE.zip
+          unzip -t dist/WhateverXe_Yoga_A7A0_Video_C_TEST_RELEASE.zip
+          git -C Source diff -- WhateverXe/kern_xe.cpp WhateverXe/kern_alderlake_n.hpp \
+            tests/fixtures/boot_argument_names.json > dist/VIDEO_C_REVIEWED_SOURCE.patch
+          cp e15/VIDEO_C_README.md dist/
+          cp Source/build/tests/results.json dist/source-tests.json
+          {
+            echo "State=HIGH-RISK EXPERIMENT: known VA 0x1336f3 crash is NOT fixed"
+            echo "BuildBranch=experiment/main-video-accel-c"
+            echo "BuildCommit=$GITHUB_SHA"
+            echo "Donor=f7b9bf2229d323e37e8b1dfb87182f005eb7a277"
+            echo "Graphics=existing signed v0.4.0 unchanged"
+            echo "OptIn=-wex-yoga-video-c; original E behavior by default"
+            echo "When flag on A7A0: preserve both IOVARendererID and IOGVAScaler"
+            xcrun dwarfdump --uuid "$KEXT/Contents/MacOS/WhateverXe"
+            shasum -a 256 "$KEXT/Contents/MacOS/WhateverXe"
+          } > dist/BUILD_INFO.txt
+          (cd dist && shasum -a 256 WhateverXe_Yoga_A7A0_Video_C_TEST_RELEASE.zip > SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WhateverXe-Yoga-Video-C-Test-Kext
+          path: dist/*
+          retention-days: 30
+          if-no-files-found: error
