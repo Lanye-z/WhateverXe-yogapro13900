@@ -41,7 +41,7 @@ on unattended or production machines.
 
 ## Get and install the integrated WhateverXe Kext
 
-1. Open [GitHub Actions: Yoga main integration](../../actions/workflows/yoga-main.yml)
+1. Open [GitHub Actions: Yoga main integration](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/workflows/yoga-main.yml)
    and select a **successful `main` run**. Download its
    `WhateverXe-Yoga-Main-VideoC-Test-Kext` artifact.
    Inside, use `WhateverXe_Yoga_A7A0_Main_VideoC_TEST_RELEASE.zip`.
