@@ -1,4 +1,4 @@
-name: Yoga main integration - native AOC RGB8 WhateverXe
+name: Yoga main integration - RGB8 + opt-in Video C WhateverXe
 
 on:
   push:
@@ -10,6 +10,7 @@ on:
       - 'e11/**'
       - 'e12/**'
       - 'e13/**'
+      - 'e15/**'
       - '.github/workflows/yoga-main.yml'
       - 'README.md'
   workflow_dispatch:
@@ -46,13 +47,13 @@ jobs:
           ref: 1.7.2
           path: Lilu
           persist-credentials: false
-      - name: Verify fixture and prepare guarded E1.0+E1.1+native RGB8 source
+      - name: Verify fixture and prepare guarded E1.0+HDMI600+RGB8+Video C source
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m py_compile e13/tools/prepare_rgb8.py
+          python3 -m py_compile e15/tools/prepare_video_c.py
           python3 -m unittest discover -s e12/tests -v
-          python3 e13/tools/prepare_rgb8.py Source
+          python3 e15/tools/prepare_video_c.py Source
           git -C Source diff --check
           mkdir -p Source/Lilu.kext/Contents/Resources
           ln -s "$GITHUB_WORKSPACE/Lilu/Lilu/Headers" Source/Lilu.kext/Contents/Resources/Headers
@@ -69,6 +70,10 @@ jobs:
           /tmp/yoga_hdmi600_fixture
           grep -q 'WEXYogaRGB8Last' Source/WhateverXe/kern_xe.cpp
           grep -q 'Transport::TMDS' Source/WhateverXe/kern_xe.cpp
+          grep -q 'checkKernelArgument("-wex-yoga-video-c")' Source/WhateverXe/kern_xe.cpp
+          grep -q 'WEXYogaVideoCPropertiesPreserved' Source/WhateverXe/kern_xe.cpp
+          grep -q 'videoCPci->configRead16(0x02)==0xA7A0' Source/WhateverXe/kern_xe.cpp
+          grep -q 'callbackXE->adlpDisplaySelected && !videoCPreserve' Source/WhateverXe/kern_xe.cpp
       - name: Run pinned upstream tests
         working-directory: Source
         run: python3 tools/test.py
@@ -84,25 +89,29 @@ jobs:
           mkdir -p dist
           KEXT=Source/build/RELEASE/WhateverXe.kext
           test -s "$KEXT/Contents/MacOS/WhateverXe"
-          ditto -c -k --keepParent "$KEXT" dist/WhateverXe_Yoga_A7A0_Main_RGB8_TEST_RELEASE.zip
+          ditto -c -k --keepParent "$KEXT" dist/WhateverXe_Yoga_A7A0_Main_VideoC_TEST_RELEASE.zip
           unzip -t dist/WhateverXe_Yoga_A7A0_Main_RGB8_TEST_RELEASE.zip
           git -C Source diff -- WhateverXe/kern_xe.cpp WhateverXe/kern_alderlake_n.hpp \
             tests/fixtures/boot_argument_names.json > dist/YOGA_MAIN_REVIEWED_SOURCE.patch
           cp e13/YOGA_MAIN_RGB8_README.md dist/
+          cp e15/VIDEO_C_README.md dist/
+          cp README.md dist/
           cp Source/build/tests/results.json dist/source-tests.json
           {
-            echo "State=EXPERIMENTAL; awaiting real Yoga A7A0 Kext-only EDID validation"
+            echo "State=EXPERIMENTAL; Video C opt-in, known VA pixel-transfer crash remains"
             echo "Base=f7b9bf2229d323e37e8b1dfb87182f005eb7a277"
             echo "Graphics=existing signed 0.4.0 unchanged"
             echo "New EDID patch default OFF: -wex-yoga-rgb8"
             echo "HDMI600 mode-admission patch default OFF: -wex-yoga-hdmi600"
+            echo "Video C GVA key restoration default OFF: -wex-yoga-video-c (A7A0 only)"
+            echo "Validated on target with D direct-NV12 1080p H264 180/180 frames; native VPHAL NULL+8 still exists"
             xcrun dwarfdump --uuid "$KEXT/Contents/MacOS/WhateverXe"
             shasum -a 256 "$KEXT/Contents/MacOS/WhateverXe"
           } > dist/BUILD_INFO.txt
           (cd dist && shasum -a 256 WhateverXe_Yoga_A7A0_Main_RGB8_TEST_RELEASE.zip > SHA256SUMS)
       - uses: actions/upload-artifact@v4
         with:
-          name: WhateverXe-Yoga-Main-RGB8-Test-Kext
+          name: WhateverXe-Yoga-Main-VideoC-Test-Kext
           path: dist/*
           retention-days: 30
           if-no-files-found: error
