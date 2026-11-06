@@ -90,7 +90,7 @@ jobs:
           KEXT=Source/build/RELEASE/WhateverXe.kext
           test -s "$KEXT/Contents/MacOS/WhateverXe"
           ditto -c -k --keepParent "$KEXT" dist/WhateverXe_Yoga_A7A0_Main_VideoC_TEST_RELEASE.zip
-          unzip -t dist/WhateverXe_Yoga_A7A0_Main_RGB8_TEST_RELEASE.zip
+          unzip -t dist/WhateverXe_Yoga_A7A0_Main_VideoC_TEST_RELEASE.zip
           git -C Source diff -- WhateverXe/kern_xe.cpp WhateverXe/kern_alderlake_n.hpp \
             tests/fixtures/boot_argument_names.json > dist/YOGA_MAIN_REVIEWED_SOURCE.patch
           cp e13/YOGA_MAIN_RGB8_README.md dist/
@@ -108,7 +108,7 @@ jobs:
             xcrun dwarfdump --uuid "$KEXT/Contents/MacOS/WhateverXe"
             shasum -a 256 "$KEXT/Contents/MacOS/WhateverXe"
           } > dist/BUILD_INFO.txt
-          (cd dist && shasum -a 256 WhateverXe_Yoga_A7A0_Main_RGB8_TEST_RELEASE.zip > SHA256SUMS)
+          (cd dist && shasum -a 256 WhateverXe_Yoga_A7A0_Main_VideoC_TEST_RELEASE.zip > SHA256SUMS)
       - uses: actions/upload-artifact@v4
         with:
           name: WhateverXe-Yoga-Main-VideoC-Test-Kext
