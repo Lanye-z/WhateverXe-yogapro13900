@@ -1,0 +1,120 @@
+name: Yoga Video B - A7A0 renderer opt-in test Kext
+
+on:
+  push:
+    branches:
+      - experiment/main-video-accel-b
+    paths:
+      - 'e14/**'
+      - '.github/workflows/yoga-video-b.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-video-b:
+    runs-on: macos-15-intel
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout pinned E multi-output donor
+        uses: actions/checkout@v4
+        with:
+          repository: Thatisjigen/WhateverXe
+          ref: f7b9bf2229d323e37e8b1dfb87182f005eb7a277
+          path: Source
+          persist-credentials: false
+      - name: Checkout pinned MacKernelSDK
+        uses: actions/checkout@v4
+        with:
+          repository: acidanthera/MacKernelSDK
+          ref: 05094e5e88cec7caedbfb35e8449ed0db94bf95b
+          path: MacKernelSDK
+          persist-credentials: false
+      - name: Checkout Lilu 1.7.2
+        uses: actions/checkout@v4
+        with:
+          repository: acidanthera/Lilu
+          ref: 1.7.2
+          path: Lilu
+          persist-credentials: false
+
+      - name: Verify pinned E integration and inject gated Video B
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile e14/tools/prepare_video_b.py
+          python3 -m unittest discover -s e12/tests -v
+          python3 e14/tools/prepare_video_b.py Source
+          git -C Source diff --check
+          python3 - <<'PY'
+          from pathlib import Path
+          text=Path("Source/WhateverXe/kern_xe.cpp").read_text()
+          assert text.count('checkKernelArgument("-wex-yoga-video-b")')==1
+          assert text.count('that->removeProperty("IOGVAScaler")')==1
+          assert text.count('that->removeProperty("IOVARendererID")')==1
+          assert 'callbackXE->adlpDisplaySelected && !videoBPreserve' in text
+          assert 'videoBPci->configRead16(0x02)==0xA7A0' in text
+          assert 'WEXYogaRGB8Last' in text
+          assert 'WEXYogaHDMI600Requested' in text
+          print("VIDEO_B_OVERLAY_CHECK=PASS; scaler, HDMI600 and RGB8 preserved")
+          PY
+          mkdir -p Source/Lilu.kext/Contents/Resources
+          ln -s "$GITHUB_WORKSPACE/Lilu/Lilu/Headers" Source/Lilu.kext/Contents/Resources/Headers
+          ln -s "$GITHUB_WORKSPACE/Lilu/Lilu/Library" Source/Lilu.kext/Contents/Resources/Library
+
+      - name: Run existing RGB8 and HDMI600 fixture tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          clang++ -std=c++17 -O1 -g -fsanitize=address,undefined -I Source/WhateverXe \
+            e13/tests/test_rgb8.cpp -o /tmp/yoga_video_b_rgb8
+          /tmp/yoga_video_b_rgb8
+          clang++ -std=c++17 -O1 -g -fsanitize=address,undefined -I Source/WhateverXe \
+            e11/tools/test_hdmi600.cpp -o /tmp/yoga_video_b_hdmi600
+          /tmp/yoga_video_b_hdmi600
+
+      - name: Run pinned upstream source tests
+        working-directory: Source
+        run: python3 tools/test.py
+
+      - name: Build RELEASE Kext only
+        working-directory: Source
+        run: |
+          python3 tools/build.py --release --sdk "$GITHUB_WORKSPACE/MacKernelSDK" --output build/RELEASE
+          python3 tools/check_compat_version.py build/RELEASE
+
+      - name: Package independent Video B test Kext and exact source diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          KEXT=Source/build/RELEASE/WhateverXe.kext
+          test -s "$KEXT/Contents/MacOS/WhateverXe"
+          ditto -c -k --keepParent "$KEXT" dist/WhateverXe_Yoga_A7A0_Video_B_TEST_RELEASE.zip
+          unzip -t dist/WhateverXe_Yoga_A7A0_Video_B_TEST_RELEASE.zip
+          git -C Source diff -- WhateverXe/kern_xe.cpp WhateverXe/kern_alderlake_n.hpp \
+            tests/fixtures/boot_argument_names.json > dist/VIDEO_B_REVIEWED_SOURCE.patch
+          cp e14/VIDEO_B_README.md dist/
+          cp Source/build/tests/results.json dist/source-tests.json
+          {
+            echo "State=EXPERIMENTAL; not validated on Yoga hardware"
+            echo "BuildBranch=experiment/main-video-accel-b"
+            echo "BuildCommit=$GITHUB_SHA"
+            echo "Donor=f7b9bf2229d323e37e8b1dfb87182f005eb7a277"
+            echo "Graphics=existing signed v0.4.0 unchanged"
+            echo "OptIn=-wex-yoga-video-b (default OFF, A7A0 only)"
+            echo "IOGVAScaler=still removed as in E"
+            xcrun dwarfdump --uuid "$KEXT/Contents/MacOS/WhateverXe"
+            shasum -a 256 "$KEXT/Contents/MacOS/WhateverXe"
+          } > dist/BUILD_INFO.txt
+          (cd dist && shasum -a 256 WhateverXe_Yoga_A7A0_Video_B_TEST_RELEASE.zip > SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WhateverXe-Yoga-Video-B-Test-Kext
+          path: dist/*
+          retention-days: 30
+          if-no-files-found: error
