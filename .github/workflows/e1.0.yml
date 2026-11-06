@@ -1,0 +1,100 @@
+name: E1.0 A7A0 multi-output experimental Kext
+on:
+  push:
+    branches: [E1.0]
+    paths:
+      - 'e/**'
+      - 'src/WhateverXe/kern_alderlake_n.hpp'
+      - '.github/workflows/e1.0.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-build:
+    runs-on: macos-15-intel
+    timeout-minutes: 45
+    steps:
+      - name: Checkout E branch (archived D1.1 header included)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout exact Issue 38 acer/current code
+        uses: actions/checkout@v4
+        with:
+          repository: Thatisjigen/WhateverXe
+          ref: f7b9bf2229d323e37e8b1dfb87182f005eb7a277
+          path: Source
+          persist-credentials: false
+      - name: Checkout pinned MacKernelSDK
+        uses: actions/checkout@v4
+        with:
+          repository: acidanthera/MacKernelSDK
+          ref: 05094e5e88cec7caedbfb35e8449ed0db94bf95b
+          path: MacKernelSDK
+          persist-credentials: false
+      - name: Checkout pinned Lilu 1.7.2
+        uses: actions/checkout@v4
+        with:
+          repository: acidanthera/Lilu
+          ref: 1.7.2
+          path: Lilu
+          persist-credentials: false
+      - name: Verify one-line D compatibility and overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile e/tools/prepare_e.py
+          python3 e/tools/prepare_e.py Source
+          mkdir -p Source/Lilu.kext/Contents/Resources
+          ln -s "$GITHUB_WORKSPACE/Lilu/Lilu/Headers" Source/Lilu.kext/Contents/Resources/Headers
+          ln -s "$GITHUB_WORKSPACE/Lilu/Lilu/Library" Source/Lilu.kext/Contents/Resources/Library
+          git -C Source diff --check
+          git -C Source diff -- WhateverXe/kern_alderlake_n.hpp > E1.0_REVIEWED_SOURCE_DIFF.patch
+          test "$(grep -c '^+        !(trans' E1.0_REVIEWED_SOURCE_DIFF.patch)" -eq 1
+      - name: Upstream CPU and mock tests
+        working-directory: Source
+        run: python3 tools/test.py
+      - name: Build native RELEASE WhateverXe
+        working-directory: Source
+        run: |
+          python3 tools/build.py --release --sdk "$GITHUB_WORKSPACE/MacKernelSDK" --output build/RELEASE
+          python3 tools/check_compat_version.py build/RELEASE
+      - name: Package Kext only and reproducibility manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEXT=Source/build/RELEASE/WhateverXe.kext
+          test -s "$KEXT/Contents/MacOS/WhateverXe"
+          test -s "$KEXT/Contents/Info.plist"
+          mkdir -p dist
+          ditto -c -k --keepParent "$KEXT" dist/WhateverXe_A7A0_E1.0_Experimental_RELEASE.zip
+          unzip -t dist/WhateverXe_A7A0_E1.0_Experimental_RELEASE.zip
+          cp E1.0_REVIEWED_SOURCE_DIFF.patch dist/
+          cp e/E1.0_README.md dist/
+          cp Source/build/tests/results.json dist/source-tests.json
+          {
+            echo "Base acer/current=f7b9bf2229d323e37e8b1dfb87182f005eb7a277"
+            echo "D1.1 eDP header blob=c6fa4c05799e326e91cce659435fbc56a5068e96"
+            echo "Graphics=separate upstream 0.4.0; not packaged or patched"
+            echo "WARNING=UNTESTED ON YOGA; use separate EFI and remove -wex-a7a0-panel-only"
+            xcrun dwarfdump --uuid "$KEXT/Contents/MacOS/WhateverXe"
+          } > dist/BUILD_INFO.txt
+          (cd dist && shasum -a 256 WhateverXe_A7A0_E1.0_Experimental_RELEASE.zip > SHA256SUMS)
+      - name: Upload E1.0 Kext test package
+        uses: actions/upload-artifact@v4
+        with:
+          name: WhateverXe-A7A0-E1.0-Experimental
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: E1.0-Build-Logs
+          path: |
+            Source/build/tests/*.log
+            Source/build/tests/results.json
+          if-no-files-found: ignore

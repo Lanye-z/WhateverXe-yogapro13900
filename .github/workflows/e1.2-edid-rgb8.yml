@@ -1,0 +1,30 @@
+name: E1.2 RGB EDID safety validation
+on:
+  push:
+    branches:
+      - 'experiment/E1.2-HDMI600-RGB8'
+    paths:
+      - 'e12/**'
+      - '.github/workflows/e1.2-edid-rgb8.yml'
+      - 'README.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  edid-static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Compile Python and test binary EDID transformations
+        run: |
+          python3 -m py_compile e12/tools/edid_rgb8.py
+          python3 -m unittest discover -s e12/tests -v
+      - name: Ensure E1.1 graphics and boot source is identical
+        run: |
+          git diff --exit-code 91629bd10c5d40f41a6df76e8daf96a87ab0ed07 HEAD -- \
+            src e e11 graphics macos build_E_on_macos.command
