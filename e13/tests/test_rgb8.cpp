@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstdio>
 #include <cstring>
+#include <initializer_list>
 #include <stdint.h>
 
 static unsigned validChecksum(const uint8_t *block) {
@@ -22,7 +23,7 @@ int main() {
         assert(rewrite(block,copy)==Result::Already);
         assert(!memcmp(copy,expected,128));
         memcpy(copy,original,128);
-        copy[25]^=1;auto bad[128]={0};memcpy(bad,copy,128);
+        copy[25]^=1;uint8_t bad[128]={0};memcpy(bad,copy,128);
         assert(rewrite(block,copy)==Result::Skipped);
         assert(!memcmp(copy,bad,128));
     }
