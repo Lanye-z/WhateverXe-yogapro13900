@@ -1,20 +1,17 @@
-# WhateverXe A7A0 — E1.2 HDMI RGB8 experiment (2026-11-05)
+# WhateverXe for Yoga Pro 14s IRH8 — Integrated Test Build
 
-This branch is derived from E1.1-HDMI600 commit
-91629bd10c5d40f41a6df76e8daf96a87ab0ed07.
+**Status: experimental native EDID integration; do not replace the known-good EFI.**
 
-**E1.2 only adds offline EDID colour override tooling and tests.**
-It does not alter the E1.1 WhateverXe kernel code, install a driver,
-or claim a physical Yoga A7A0 colour fix. Do not overwrite the
-daily-use D1.1, E1.0 or E1.1 recovery/test EFIs.
+- Full details, source revisions, safe test and rollback:
+  [e13/YOGA_MAIN_RGB8_README.md](e13/YOGA_MAIN_RGB8_README.md)
+- New native EDID patch (optional, default OFF): \`-wex-yoga-rgb8\`.
+  Exact-match original AOC U27P10 05E3:2710 EDID -> proven
+  RGB8_STRICT 256-byte variant at Display13 native HDMI DDC read.
+- Existing optional E1.1 HDMI600: \`-wex-yoga-hdmi600\`. The 4K60
+  black-screen issue remains unresolved; this does not implement SCDC.
+- Baseline: pinned acer/current + D1.1 eDP CTL2 one-line acceptance.
+  WhateverXe Graphics v0.4.0 stays unchanged.
+- Build artifact: [.github/workflows/yoga-main.yml](.github/workflows/yoga-main.yml).
 
-Start here: [E1.2 EDID RGB8 README](e12/E1.2_RGB8_README.md).
-
-Earlier milestones:
-- [E1.1 HDMI600 opt-in experiment](e11/E1.1_HDMI600_README.md)
-- [E1.0 multi-output integration](e/E1.0_README.md)
-- [D1.1 preserved release](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/archive/D1.1-2026-11-05)
-
-WhateverXe upstream colour reports:
-[Issue #40](https://github.com/b00t0x/WhateverXe/issues/40),
-[Issue #41](https://github.com/b00t0x/WhateverXe/issues/41).
+Earlier research and archive artifacts remain available in the repository.
+The new EFI/Kext has not been installed on the target Mac by this commit.

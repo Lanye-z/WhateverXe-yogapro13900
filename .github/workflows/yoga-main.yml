@@ -1,0 +1,108 @@
+name: Yoga main integration - native AOC RGB8 WhateverXe
+
+on:
+  push:
+    branches:
+      - main
+      - integration/yoga-main-rgb8
+    paths:
+      - 'e/**'
+      - 'e11/**'
+      - 'e12/**'
+      - 'e13/**'
+      - '.github/workflows/yoga-main.yml'
+      - 'README.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-main-test-kext:
+    runs-on: macos-15-intel
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout exactly pinned multi-display donor
+        uses: actions/checkout@v4
+        with:
+          repository: Thatisjigen/WhateverXe
+          ref: f7b9bf2229d323e37e8b1dfb87182f005eb7a277
+          path: Source
+          persist-credentials: false
+      - name: Checkout pinned MacKernelSDK
+        uses: actions/checkout@v4
+        with:
+          repository: acidanthera/MacKernelSDK
+          ref: 05094e5e88cec7caedbfb35e8449ed0db94bf95b
+          path: MacKernelSDK
+          persist-credentials: false
+      - name: Checkout Lilu 1.7.2
+        uses: actions/checkout@v4
+        with:
+          repository: acidanthera/Lilu
+          ref: 1.7.2
+          path: Lilu
+          persist-credentials: false
+      - name: Verify fixture and prepare guarded E1.0+E1.1+native RGB8 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile e13/tools/prepare_rgb8.py
+          python3 -m unittest discover -s e12/tests -v
+          python3 e13/tools/prepare_rgb8.py Source
+          git -C Source diff --check
+          mkdir -p Source/Lilu.kext/Contents/Resources
+          ln -s "$GITHUB_WORKSPACE/Lilu/Lilu/Headers" Source/Lilu.kext/Contents/Resources/Headers
+          ln -s "$GITHUB_WORKSPACE/Lilu/Lilu/Library" Source/Lilu.kext/Contents/Resources/Library
+      - name: Build and run production EDID-matcher regression with sanitizers
+        shell: bash
+        run: |
+          set -euo pipefail
+          clang++ -std=c++17 -O1 -g -fsanitize=address,undefined \
+            -I Source/WhateverXe e13/tests/test_rgb8.cpp -o /tmp/yoga_rgb8_fixture
+          /tmp/yoga_rgb8_fixture
+          clang++ -std=c++17 -O1 -g -fsanitize=address,undefined \
+            -I Source/WhateverXe e11/tools/test_hdmi600.cpp -o /tmp/yoga_hdmi600_fixture
+          /tmp/yoga_hdmi600_fixture
+          grep -q 'WEXYogaRGB8Last' Source/WhateverXe/kern_xe.cpp
+          grep -q 'Transport::TMDS' Source/WhateverXe/kern_xe.cpp
+      - name: Run pinned upstream tests
+        working-directory: Source
+        run: python3 tools/test.py
+      - name: Build RELEASE Kext only
+        working-directory: Source
+        run: |
+          python3 tools/build.py --release --sdk "$GITHUB_WORKSPACE/MacKernelSDK" --output build/RELEASE
+          python3 tools/check_compat_version.py build/RELEASE
+      - name: Package reviewed sources, Kext, and hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          KEXT=Source/build/RELEASE/WhateverXe.kext
+          test -s "$KEXT/Contents/MacOS/WhateverXe"
+          ditto -c -k --keepParent "$KEXT" dist/WhateverXe_Yoga_A7A0_Main_RGB8_TEST_RELEASE.zip
+          unzip -t dist/WhateverXe_Yoga_A7A0_Main_RGB8_TEST_RELEASE.zip
+          git -C Source diff -- WhateverXe/kern_xe.cpp WhateverXe/kern_alderlake_n.hpp \
+            tests/fixtures/boot_argument_names.json > dist/YOGA_MAIN_REVIEWED_SOURCE.patch
+          cp e13/YOGA_MAIN_RGB8_README.md dist/
+          cp Source/build/tests/results.json dist/source-tests.json
+          {
+            echo "State=EXPERIMENTAL; awaiting real Yoga A7A0 Kext-only EDID validation"
+            echo "Base=f7b9bf2229d323e37e8b1dfb87182f005eb7a277"
+            echo "Graphics=existing signed 0.4.0 unchanged"
+            echo "New EDID patch default OFF: -wex-yoga-rgb8"
+            echo "HDMI600 mode-admission patch default OFF: -wex-yoga-hdmi600"
+            xcrun dwarfdump --uuid "$KEXT/Contents/MacOS/WhateverXe"
+            shasum -a 256 "$KEXT/Contents/MacOS/WhateverXe"
+          } > dist/BUILD_INFO.txt
+          (cd dist && shasum -a 256 WhateverXe_Yoga_A7A0_Main_RGB8_TEST_RELEASE.zip > SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WhateverXe-Yoga-Main-RGB8-Test-Kext
+          path: dist/*
+          retention-days: 30
+          if-no-files-found: error
