@@ -45,6 +45,17 @@ Critical differences and precautions:
 - Do **not** change 120Hz, EDID, WM, HDMI, DSC, system Graphics binaries,
   plane surfaces/tiling or framebuffer resource descriptions at this stage.
 
+## Exact Graphics 0.4.4 donor audit — CI passed
+
+[GitHub Actions run 44300608445](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44300608445)
+successfully inspected the pinned public Graphics 0.4.4 Tahoe files without modifying them.
+
+- `AppleIntelTGLGraphics` SHA256: `6c8ab6cce50b9529679ee4fdf5b1c37d091677d945076f41cb4b7f8196c51449`.
+- `AppleIntelTGLGraphicsFramebuffer` SHA256: `115a4616e862228a8c82df6e52ba41ac02b9750f116352ff3575aadcc950888e`.
+- Exported symbol `IGAccelDisplayPipe::initFramebufferResource` at `0x7F160`, and `IGAccelDisplayPipe::initResourceInfo` at `0x7EE9A`. These correspond to the functions described in #131, including a report that the same offsets also matched Graphics 0.4.4 on an A78B device.
+- This is a **code match**, not proof of an X-Tiled **runtime** resource descriptor on the Yoga.
+- [Download raw symbol/source audit](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44300608445/artifacts/14425364213).
+
 ## Reproducible safe research
 
 The new `analyze_boot_capture.py` reads a **local** `ioreg.txt` or existing
