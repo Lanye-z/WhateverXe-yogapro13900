@@ -1,45 +1,96 @@
-# Yoga Pro 14s IRH8 (82Y7) — WhateverXe 0.8.3, 3K120 WM boot recovery
+# Yoga 82Y7 / A7A0 — 0.8.3 WM_ONLY + multi-display bring-up audit
 
-**Status — 2026-11-18: WM_ONLY (source-equivalent to V2) passed one real-device reboot with the previously selected 3072×1920 @ 120Hz mode restored; 775.69MHz pixel clock, Metal 2 and 1536MB verified AFTER that reboot.** The original V1 admission-only test could enter 120Hz from the desktop but repeatedly booted to black with the high-refresh mode saved.
+**2026-11-18 STATUS: READ-ONLY PORT-QUALIFICATION EXPERIMENT, NOT A VERIFIED MULTI-MONITOR REPAIR.**
 
-**This is a promising candidate, NOT a long-term stable release.** Repeated warm/cold boots, display sleep/wake and full system sleep, external outputs and dock are **not yet validated**. The user is using the current driver normally before providing further stability results. A brief (<1s) Apple Logo flash remains visible; investigation is **deferred**, not fixed. No new unrelated patches should be added at this stage.
+This branch is based on the real-device-verified **WM_ONLY** 3K120 variant,
+which is source-identical to the original 0.8.3 eDP120 V2 patch generator.
+It includes **only one additional optional boot argument,
+`-wex-yoga-multi-audit`, which publishes non-mutating Display13
+board-wiring and hook-readiness evidence**. It does not claim to make a
+previously unrecognized external display work.
 
-## Exact real-hardware evidence
+## Why a blind E1.0 transplant would be misleading
 
-| Evidence after the successful WM_ONLY reboot | Result |
-| --- | --- |
-| Machine | Lenovo Yoga Pro 14s IRH8, i9-13900H, Intel 8086:A7A0 rev 04, macOS 26.7.1 (25G241), Graphics 0.4.4 |
-| Display | Native 3072×1920 eDP, `UI Looks like 1536×960 @ 120.00Hz` |
-| `IOFBCurrentPixelClock` | **775690000** |
-| Hardware acceleration | **1536MB VRAM / Metal 2** |
-| `WEXYogaEDP120Scoped` | Yes |
-| `WEXYogaEDP120AdmissionRequested / AdmissionReady` | Yes / Yes |
-| `WEXYogaEDP120AdmissionStatus` | **4** |
-| `WEXYogaEDP120WMEnabled` | **Yes** |
+A source comparison of the archived E1.0's pinned
+`Thatisjigen/WhateverXe:acer/current` (SHA `f7b9bf2229d323e37e8b1dfb87182f005eb7a277`)
+and official upstream 0.8.3
+(`f26a36880c49ea1063393d943527808c0f38feca`) found:
 
-This demonstrates one successful **system-level** reboot and 120Hz timing, not a photodiode measurement, repeated-start stability proof or proof of the exclusive root cause. The earlier V1 tests confirmed the 800MHz scoped admission fix; the additional WM `clockFits()` change is strongly implicated in the successful boot A/B.
+- `display13BoardWiring()` selects physical mobile VBT ports **identically**
+  in both; the core `kern_display13_output_wiring.hpp` and
+  `kern_display13_fb_topology.hpp` have **identical Git blob SHA**.
+- Both versions already contain `Display13FBTopology::multiOutputWiring`,
+  separate display pipes and shared clock/DBUF/IRQ/hotplug paths.
+- E1.0's unique modification on top of `acer/current` was the **eDP
+  CTL2 bit-3** exception. WM_ONLY already includes that fix.
+- E1.1's **HDMI 300→600MHz** and E1.2's RGB8 were **separate experiments**,
+  not the basic multiple-display implementation. Neither is included here.
+- 0.8.3 has changed various IRQ/lifecycle details compared with
+  `acer/current`; replacing its `kern_xe.cpp` or IRQ header with the
+  older E1.0 file would regress newer power/pipe management.
 
-## Which build to use
+A 2026-11-18 saved `Yoga_EDP120_V1.zip` IORegistry capture on this exact
+Yoga reports `N97NativeBootConnector=[1,1,0,1,2,0]` (VBT HDMI mask 0x2),
+`XELPSharedProbeBound=Yes`, `N97FBTopologyHooksReady=Yes`,
+`N97FBOutputHooksReady=Yes`, and `WEXDisplay13TCHooksReady=Yes`.
+`N97FBConnectorPolicy` lists the native eDP, a DDI B HDMI connector, and
+DDI TC1–4 port records. **Those are port declarations and route
+preconditions, not proof of a working hotplug, trained DP link or external
+display scanout.**
 
-- **WM_ONLY — real-device-verified candidate**: [CI artifact](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44315637323/artifacts/14431873939). Implements V1 CTL2 bit-3 and scoped eDP `getOnlineInfo` 720→800MHz, plus the scoped 2-pixels/CDCLK Display13 WM check when enabled.
-- **WM_GATE — CI-only, not hardware tested and not currently needed**: [separate artifact](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44315637323/artifacts/14431804529). Adds optional WorkLoop gate retry from upstream issue #102. It was **not present** in the successful WM_ONLY reboot.
+## Opt-in evidence and boot arguments
 
-[CI run 44315637323](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44315637323) passed the official 0.8.3 regression suite, RELEASE build and compatibility checks for both packages. **WM_ONLY uses the same source patching logic as the earlier V2 `wex120/prepare_120.py` variant.** The separately compiled original V2 archive was not itself tested on the physical machine; compiled binaries need not be byte-identical.
-
-**Not included in WM_ONLY:** eDP Keep, SetupTimings workarounds, DSC changes, issue #102 gate retry, issue #104 deferred-clock or panel-admission modifications, issue #131 GOP/tiling flash fix, HDMI/Thunderbolt repair.
-
-## Active working configuration
+Leave the previously working flags in place:
 
 ```text
 -v keepsyms=1 -vi2c-force-polling -ibtcompatbeta -allow3d -disablegfxfirmware -igfxdvmt -wex-yoga-edp120-admit -wex-yoga-edp120-wm
 ```
 
-Do not add `-wex-yoga-edp120-gateretry` or substitute WM_GATE on this successful setup. The two 120Hz flags default off on installations that do not request them.
+For the **new, independently bootable test EFI only**, append:
 
-## Safety and next steps
+```text
+-wex-yoga-multi-audit
+```
 
-Keep an independently bootable, untouched 60Hz CTL2 recovery EFI and do not merge the 0.8.3 experiments into the older 0.7.0-based `main` without deliberate integration. **No further forced stress testing is requested now.** In ordinary use, monitor accidental black screens, screen doze recovery, brightness and reboot stability, then update this README only when new device data arrive.
+Boot first without connecting an external display, and verify the same
+120Hz + Metal 2 / 1536MB. Then connect a single display by **native HDMI at
+1080p60 or 4K30**, not 4K60, and do not involve the Thunderbolt dock initially
+(it has a separate previously observed stability issue).
 
-The original V1 cold-restart failure has logs of repeated WindowServer `Fallback GPU Display Pipe transaction submission failed` (one boot also lacked the error flood). The successful WM_ONLY reboot is strong evidence of the needed clock/WM budget correction, but no failed-run hardware state directly proved `clockFits()` was the only blocker.
+Collect a read-only snapshot both before and after plugging the monitor.
+Use `wexmulti/collect_external.sh` while logged into macOS, once without
+external monitor, then again while connected.
 
-For exact source patching, safeguards and CI, see [wexbootfix/README.md](wexbootfix/README.md).
+The new properties are arrays of 32-bit little-endian words:
+
+- `WEXYogaMultiWiring`: [schema=1, valid, described, selected, panel,
+  hdmi, dp, typeC, hotplug, links]
+- `WEXYogaMultiHooks`: [schema=1, topology, output, TC hooks, TC probe,
+  DP-alt probe, AUX, SST, IRQ, CDCLK hook, WM hooks, DBUF hooks]
+
+The script captures `N97FBPortProbe*`, `N97FBConnectorPolicy`,
+displayed mode/EDID, and recent relevant WindowServer/graphics messages.
+It does not modify the machine.
+
+**The missing behavior cannot be correctly patched until the physical
+external-monitor failure is classified**: no EDID, HPD, invalid port/TC
+ownership, failed AUX/link training, no display pipe, or output blanking.
+This is a preparatory compatibility test build, not a claim that the
+current 0.8.3 driver suddenly supports more screens.
+
+## Recovery
+
+Never overwrite the existing successful 3K120 WM_ONLY EFI.
+Use an independently bootable clone; the only Kext change is the optional
+read-only probe. If the display goes black, restore the original WM_ONLY
+Kext and boot args using the untouched backup EFI. Do not enable
+`-wex-yoga-hdmi600`, RGB8, DSC, eDP keep, Gate retry or panel admission
+modifications in this test.
+
+## Source / build
+
+Source is pinned to official 0.8.3 and Graphics 0.4.4 donor (exact SHA256
+`115a4616e862228a8c82df6e52ba41ac02b9750f116352ff3575aadcc950888e`).
+The workflow `.github/workflows/yoga-wex083-multidisplay-audit.yml` runs
+official tests, builds RELEASE and packages code diffs. The existing V1,
+V2, WM_ONLY, main and EFI files are untouched.
