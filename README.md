@@ -2,6 +2,16 @@
 
 **Status (2026-11-18): V1 VERIFIED ON REAL HARDWARE at 3072×1920 @ 120.00Hz, Metal 2, 1536 MB VRAM.** This branch is the **recommended working internal-display test baseline**, but it is not a release validated for long-term sleep/wake, video codecs, external displays or dock operation.
 
+> **Boot regression identified on 2026-11-18:** although V1 genuinely
+> switched to and displayed **3072×1920 @ 120Hz** with Metal 2 and
+> 775.69MHz pixel clock, restarting macOS with the saved high-refresh
+> mode and `-wex-yoga-edp120-admit` now **reproducibly produces a black
+> internal display**, both with and without `-v`. Omitting admission
+> restores a normal 60Hz boot. V1 is therefore **NOT validated as a
+> reboot-safe daily driver**. Keep it out of primary EFI; do not enable
+> 120Hz admission by default. Independent opt-in experiments:
+> [WM and clock-gate recovery branch](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-yoga-edp120-bootfix).
+
 ## Tested configuration
 
 | Item | Actual Yoga test |
