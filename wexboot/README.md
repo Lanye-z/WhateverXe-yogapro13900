@@ -87,3 +87,44 @@ resource tiling/first-flip state, consider a **separately flagged**, strictly
 fingerprinted, one-time resource-description fix (not a masked timer), with
 both boot and shutdown regression tests. Do not replace the proven eDP120 V1
 until a new CI artifact and an independent test EFI exist.
+
+## New real-hardware A/B result — no `-v` (2026-11-18)
+
+With the V1 3K120 Kext and `-wex-yoga-edp120-admit` retained, after selecting
+120Hz in macOS the user removed only `-v` and attempted two boots. Both showed
+the first Apple logo, dimming, a brief red-logo flash, a second normal Apple
+logo, then a black internal panel. No successful login/display was observed.
+This is **not yet a root-cause diagnosis**: the comparison changed verbose mode
+while the saved 120Hz mode remained active, and there is no matched boot of the
+same saved 120Hz mode with `-v` restored yet. Do not repeat no-`-v` boots for now.
+
+### A7A0-specific upstream precedent
+
+[WhateverXe issue #104](https://github.com/b00t0x/WhateverXe/issues/104) reports
+an early dark internal eDP on another **8086:A7A0** Raptor Lake-P system, with
+Metal/Framebuffer initialization otherwise appearing successful. Its author
+identified startup clock-gate contention, a deferred-clock write that could be
+reported as handled without being queued, and an over-strict panel admission
+check. The proposed fix was validated on that author's 0.8.0 / Graphics 0.4.x /
+Sequoia setup, **not** on this Yoga / 0.8.3 / Graphics 0.4.4 / Tahoe setup.
+The pinned official 0.8.3 source inspected for this branch still has the
+single-attempt dual-clock gate path and the pre-existing deferred-clock logic;
+this makes #104 a strong candidate to investigate, not proof of this incident.
+
+[Issue #131](https://github.com/b00t0x/WhateverXe/issues/131) remains a second,
+distinct candidate for a no-`-v` GOP-to-WindowServer resource-layout mismatch.
+The Yoga's saved early GOP snapshot is LINEAR, but no later Yoga resource
+modifier / first-blit receipt has yet been captured.
+
+### Recovery-first test order
+
+1. Restore `-v` in the **same V1 test EFI** and attempt one boot, leaving all
+   other arguments unchanged. If it reaches the desktop, immediately select
+   60Hz before the next reboot.
+2. If it remains black, stop using this V1 EFI and boot the independently
+   verified CTL2-only 60Hz recovery EFI (without `-wex-yoga-edp120-admit`).
+3. Do not reset NVRAM, enable V2's WM flag, or apply a guessed tiling / plane
+   write. Preserve the current V1 Kext and config for later comparison.
+
+This observation is recorded as an unresolved regression; no boot-flash or
+black-screen repair is claimed in this branch.

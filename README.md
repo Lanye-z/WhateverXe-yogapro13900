@@ -17,3 +17,11 @@ In a *duplicate test EFI only*, remove **exactly the standalone `-v`** from your
 For the register decoder, reproducibility, exact donor audit and **rollback precautions**, see [wexboot/README.md](wexboot/README.md).
 
 No changes have been made to `main`, Graphics installation, HDMI, Thunderbolt, EDID, 120Hz admission, WM, or physical eDP programming in this boot-logo branch.
+
+> **New boot test observation (2026-11-18):** after selecting 120Hz, the V1
+> test EFI was booted twice without `-v`; both attempts showed a second Apple
+> logo then a black internal panel. Cause is not yet isolated because the saved
+> 120Hz mode remained active. Restore `-v` for the first recovery attempt; if
+> still black, use the separate CTL2-only 60Hz recovery EFI. See the
+> [boot-logo investigation](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-yoga-bootlogo)
+> and the A7A0-specific upstream precedent [issue #104](https://github.com/b00t0x/WhateverXe/issues/104).
