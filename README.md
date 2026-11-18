@@ -1,16 +1,10 @@
 # Lenovo Yoga Pro 14s IRH8 (82Y7) — WhateverXe 0.8.3, 3K 120Hz
 
-**Status (2026-11-18): V1 VERIFIED ON REAL HARDWARE at 3072×1920 @ 120.00Hz, Metal 2, 1536 MB VRAM.** This branch is the **recommended working internal-display test baseline**, but it is not a release validated for long-term sleep/wake, video codecs, external displays or dock operation.
+**Historical V1 status (2026-11-18):** The admission-only V1 successfully displayed **3072×1920 @ 120Hz**, pixel clock 775.69MHz, Metal 2 / 1536MB, after a *desktop* mode change. However, **rebooting with 120Hz saved repeatedly black-screened**, whether `-v` was present or not. V1 is **not** the recommended reboot-safe build.
 
-> **Boot regression identified on 2026-11-18:** although V1 genuinely
-> switched to and displayed **3072×1920 @ 120Hz** with Metal 2 and
-> 775.69MHz pixel clock, restarting macOS with the saved high-refresh
-> mode and `-wex-yoga-edp120-admit` now **reproducibly produces a black
-> internal display**, both with and without `-v`. Omitting admission
-> restores a normal 60Hz boot. V1 is therefore **NOT validated as a
-> reboot-safe daily driver**. Keep it out of primary EFI; do not enable
-> 120Hz admission by default. Independent opt-in experiments:
-> [WM and clock-gate recovery branch](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-yoga-edp120-bootfix).
+**Follow-on WM_ONLY (source-equivalent to the original V2) has now passed one real reboot directly into 120Hz.** After that successful boot the Yoga reported `WEXYogaEDP120WMEnabled=Yes`, admission status 4, `IOFBCurrentPixelClock=775690000`, 120.00Hz, Metal 2 and 1536MB. The relevant *tested* binary is [WM_ONLY from the bootfix branch](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44315637323/artifacts/14431873939), **not this branch's V1 Kext**. The original separately compiled V2 archive contains the same source changes but was not separately tested. Repeated cold/warm boots, doze/wake and longer-term stability remain **pending** while the user uses the machine normally.
+
+The short Apple Logo display glitch is still unresolved, but its investigation is **deferred**. Keep a separate verified 60Hz recovery EFI. No eDP Keep, SetupTimings, DSC, #102 gate retry, #104 deferred-clock/panel-admission or #131 tiling patch is needed in the successful WM_ONLY test.
 
 ## Tested configuration
 
@@ -34,17 +28,17 @@ The V1 result is **real system-level 120Hz evidence**, not just a visible mode m
 Both V1 and V2 passed official 0.8.3 source tests and RELEASE compile in
 [GitHub Actions run 44291923111](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44291923111).
 
-- [V1 — confirmed 3K120 on Yoga](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44291923111/artifacts/14421917363) (**recommended**).
-- [V2 — built only, not needed/tested on device](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44291923111/artifacts/14422950304).
+- [V1 — desktop 120Hz proven, but reboot into saved 120Hz black-screened](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44291923111/artifacts/14421917363) (**not recommended for daily 3K120**).
+- [Original V2 — same patch logic as successful WM_ONLY; original archive not independently tested](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44291923111/artifacts/14422950304).
 
-V2 contains optional `-wex-yoga-edp120-wm`, a Display13 `clockFits()` two-pixel CDCLK budget adjustment. **The verified V1 success used no V2 flag.** Do not infer that WM changes, DSC or link-rate overrides were needed.
+V2 adds opt-in `-wex-yoga-edp120-wm` to the V1 admission fix. **One successful reboot directly into 120Hz occurred on source-equivalent WM_ONLY with that WM flag enabled**, strongly indicating the additional clock/WM correction matters at startup. Do not infer that DSC, eDP retraining or Gate retry was enabled. [Actual tested WM_ONLY artifact](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44315637323/artifacts/14431873939).
 
 See [full reproducible research and rollback guide](wex120/README.md).
 
-## Keep the verified 120Hz driver isolated
+## Keep the successful WM_ONLY test isolated
 
-Work only in an independently bootable test EFI, replacing its `WhateverXe.kext` while keeping the known-good copy of the working 0.8.3 CTL2 EFI. A full motherboard sleep/resume regression and external 4K60/Thunderbolt remain unverified. Do not mix WhateverXe and NootedGreen, and do not merge this branch into the earlier 0.7.0-based `main` without a deliberate integration plan.
+Work only in an independently bootable test EFI, replacing its `WhateverXe.kext` while keeping the known-good copy of the 0.8.3 CTL2 60Hz recovery EFI. A full motherboard sleep/resume regression and external 4K60/Thunderbolt remain unverified. Do not mix WhateverXe and NootedGreen, and do not merge this branch into the earlier 0.7.0-based `main` without a deliberate integration plan.
 
-### Next experiment: Apple Logo boot flash
+### Deferred: Apple Logo boot flash
 
-Investigate GOP/Framebuffer/WindowServer scanout handoff, keeping the working V1 unchanged. [WhateverXe issue #131](https://github.com/b00t0x/WhateverXe/issues/131) demonstrates one **different hardware family's** linear GOP versus X-tiled resource mismatch, but its reference fix is gated off with `-v`, whereas this Yoga currently boots with `-v`. The symptom is similar, **not yet a proven common root cause**; first collect A7A0-specific evidence. No “boot flash fixed” claim has been made.
+No further active investigation is planned while the user observes WM_ONLY in daily use. If resumed later, investigate GOP/Framebuffer/WindowServer scanout handoff in a separate branch, without changing the WM_ONLY baseline. [WhateverXe issue #131](https://github.com/b00t0x/WhateverXe/issues/131) demonstrates one **different hardware family's** linear GOP versus X-tiled resource mismatch, but its reference fix is gated off with `-v`, whereas this Yoga currently boots with `-v`. The symptom is similar, **not yet a proven common root cause**; first collect A7A0-specific evidence. No “boot flash fixed” claim has been made.

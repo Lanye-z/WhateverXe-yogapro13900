@@ -1,6 +1,6 @@
 # WhateverXe 0.8.3 Yoga LEN145-3K 120Hz — V1 verified
 
-**HARDWARE VERIFIED (2026-11-18): V1 runs the Yoga's 3072×1920 panel at 120.00Hz, Metal 2 and 1536 MB VRAM.** This supersedes the original "not hardware-verified" hypothesis. It remains a test driver until reboot, display sleep/wake and long-term stability are validated; **boot Apple Logo flicker persists**.
+**V1 HISTORIC REAL-HARDWARE RESULT (2026-11-18):** 3072×1920@120Hz, 775.69MHz, Metal 2 / 1536MB after desktop switching; **NOT reboot-safe** when 120Hz is saved: black screen after restart (with or without `-v`). **WM_ONLY, which applies the exact same source patch logic as this branch's V2 variant, has since succeeded on ONE reboot directly into 3K120**. Its post-reboot IORegistry and `system_profiler` reconfirmed `WEXYogaEDP120WMEnabled=Yes`, admission status 4, 775690000Hz, 120.00Hz and Metal 2 / 1536MB. Prefer the [actually tested WM_ONLY artifact](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44315637323/artifacts/14431873939). The original V2 binary was built separately but not separately tested. Stability over multiple boots, cold starts, display/system sleep and long-term use is still unverified. The brief boot-logo flash remains unresolved and its investigation has been intentionally paused.
 
 ## Real hardware test on the Yoga
 
@@ -14,11 +14,12 @@
 - This is system/driver-level proof of 120Hz timing, not external panel photodiode verification. Current HBR/DSC negotiation has not been captured.
 - Known issue: a subsecond garbled Apple Logo flash during early boot (sometimes stronger with admission flag; baseline can also flash). It remains **unresolved and under separate investigation**.
 
-## Version selection
+## Version selection — current evidence
 
-[Actions run 44291923111](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44291923111):
-**V1** [artifact 14421917363](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44291923111/artifacts/14421917363) is tested and recommended for the working 3K120 test EFI.
-**V2** [artifact 14422950304](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44291923111/artifacts/14422950304) passed CI but has **no device validation**; its additional `-wex-yoga-edp120-wm` 2-pixels/CDCLK patch was **not needed to obtain 120Hz**, and is not recommended without evidence of a WM failure.
+- **V1**: [original CI artifact](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44291923111/artifacts/14421917363). 120Hz desktop mode works but saved-120Hz restart repeatedly **black-screened**; not recommended as a daily high-refresh build.
+- **Original V2**: [original CI artifact](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44291923111/artifacts/14422950304). Adds opt-in WM two-pixels/CDCLK correction to V1; built successfully but original archive itself was **not separately tested** on Yoga.
+- **WM_ONLY**: [tested CI artifact](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44315637323/artifacts/14431873939), from [bootfix branch](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-yoga-edp120-bootfix). The `WM_ONLY` patch generator calls the same `prepare(..., "V2")` used for original V2. Hardware confirmed **one successful boot** restoring saved 120Hz; post-reboot 775.69MHz, Metal 2 and 1536MB.
+- **WM_GATE**: [separate CI-only candidate](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44315637323/artifacts/14431804529). WorkLoop Gate retry was **not** present in the successful WM_ONLY setup; not presently needed or hardware-tested.
 
 ## Original baseline diagnosis (now resolved by V1)
 
@@ -50,41 +51,22 @@ change every occurrence blindly. No native driver file on disk is edited.
 **Both flags default OFF**, so both packages should retain the proven CTL2
 baseline after replacing only `WhateverXe.kext`.
 
-**V1 IS VERIFIED at 120Hz on this Yoga; V2 remains CI-only and unverified on this hardware.** All native clock, link,
+**V1's 120Hz desktop mode was verified but its saved-120Hz reboot failed; source-equivalent WM_ONLY has one verified successful reboot.** All native clock, link,
 watermark and framebuffer validation remains in place except the narrowly
 scoped, explicitly enabled clock-budget condition. `-wex-yoga-edp120-wm`
 does not change EDID enumeration or configure link speed/DSC.
 
-## Testing order and safe rollback
+## Current usage and safe rollback (no new tests requested)
 
-1. Keep an **independently bootable untouched EFI / USB** with the proven
-   0.8.3+CTL2 Kext, and duplicate it for testing. Do not replace `main`
-   or modify the working macOS Graphics 0.4.4 installation.
-2. In the duplicate test EFI, replace **only** `EFI/OC/Kexts/WhateverXe.kext`
-   with the RELEASE Kext from V1. Boot **without** eDP120 flags; confirm
-   60Hz/Metal 2/1536MB first.
-3. Add **only** `-wex-yoga-edp120-admit` and reboot. Do **not** select 120Hz
-   yet. Read:
-   ```sh
-   ioreg -lw0 -p IOService | grep -E 'WEXYogaEDP120|IOFBTimingRange'
-   system_profiler SPDisplaysDataType
-   ```
-   Also enumerate modes with `CGDisplayCopyAllDisplayModes` or the previous
-   `Yoga_eDP_120Hz_Diag` command. Confirm whether **120Hz appears**.
-4. If the internal pixel clock is now 800MHz but no 120Hz mode exists, stop and
-   diagnose additional DisplayID/AGDC mode filters. If range remains 720MHz,
-   stop and determine which `getOnlineInfo` branch is actually executed.
-   Do **not** blindly enable V2 in either case.
-5. If V1 shows 120Hz in the list, proceed to **link-capability diagnostics**
-   before any switch. At 775.68MHz, uncompressed 8bpc demands > HBR2×4 bandwidth.
-   Determine actual DPCD rate/lanes, negotiated depth and DSC before a 120Hz
-   mode switch.
-6. Only after that, test V2 in a separate EFI by adding
-   `-wex-yoga-edp120-wm` alongside the V1 argument.
-   This opt-in permits the Display13 WM bound for the existing panel pipe.
-7. To roll back, remove the new arguments; for any black screen use the
-   untouched independent boot EFI and restore the known-good 0.8.3+CTL2 Kext.
-   No removal/reinstall of Graphics 0.4.4 is required for Kext-only rollback.
+The device is presently using the source-equivalent V2 **WM_ONLY** build with
+`-wex-yoga-edp120-admit -wex-yoga-edp120-wm` (and its existing working
+boot parameters). The user will report results after ordinary use. Do not
+replace WM_ONLY with WM_GATE, merge it into the older `main`, or add #102/#104
+changes without new evidence. Maintain an independently bootable CTL2-only
+60Hz recovery EFI and preserve current Graphics 0.4.4. If a boot fails, use
+that recovery EFI or disable `-wex-yoga-edp120-admit` to exclude the
+120Hz mode. No Graphics reinstall or NVRAM reset should be necessary
+for a Kext-only rollback.
 
 ## Status properties
 `WEXYogaEDP120Scoped` means a physical A7A0 with VBT eDP DDI A was found.
