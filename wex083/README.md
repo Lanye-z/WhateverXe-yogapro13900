@@ -1,6 +1,18 @@
 # Yoga Pro 14s IRH8 (82Y7) — WhateverXe 0.8.3 CTL2 test
 
-**EXPERIMENTAL / not validated on hardware yet.** This branch never replaces the stable `main`, `D1.1`, or `E1.0` code.
+**2026-11-18 STATUS: SUCCESSFULLY TESTED ON HARDWARE (INTERNAL eDP @ 60Hz).**
+Official 0.8.3 initially showed 22 MB / no Metal; the narrow panel-only
+CTL2 bit 3 exception restored normal acceleration: **1536 MB, Metal 2,
+3072×1920 @ 60Hz** on Yoga i9-13900H / A7A0 rev 04, macOS Tahoe
+26.7.1 (25G241), Graphics 0.4.4. CI [run 44270166468](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44270166468)
+also succeeded. This is a **real device test**, not merely a successful
+compile. A direct new live CTL2 register read was not recorded.
+
+**Not fixed on this branch:** 120Hz, HDMI 4K60, Thunderbolt dock, boot logo
+handoff flash, sleep, HEVC or external output. A **separate follow-on**
+[Yoga eDP120 branch](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-yoga-edp120)
+has since achieved 3K120 on the same hardware (see its README). Do not
+treat that result as included in this CTL2-only Kext.
 
 ## Why this exists
 
@@ -26,7 +38,7 @@ Old rule: `!ctl2` (reject all CTL2 bits). New rule: `!(ctl2 & ~(panel ? (1U<<3) 
 * External DP/HDMI (panel=false): CTL2 must still be zero.
 * Every other preflight, VBT, clock, DDI, PHY, framebuffer, GGTT, Metal and sleep check remains **official 0.8.3**.
 
-The workflow guards the exact upstream SHA and source syntax, runs upstream tests, builds a RELEASE Kext and uploads an artifact. A successful CI build is **not proof of hardware acceleration**.
+The workflow guards the exact upstream SHA and source syntax, runs upstream tests, builds a RELEASE Kext and uploads an artifact. CI was followed by a real Yoga hardware test confirming **Metal 2, 1536 MB and 3072×1920 @ 60 Hz**. It does **not** validate the unrelated external display or sleep paths.
 
 ## Installation and rollback
 
@@ -47,4 +59,4 @@ Only if 1536 MB/Metal is restored, proceed to display sleep testing; avoid syste
 
 ## Not addressed
 
-MST / dock independent displays, HDMI 4K60 SCDC, RGB8, Video C, 120Hz, full system sleep, or the possibility that more than one `dpSource` admission check is failing. If it still reports `InvalidDPSource`, get an actual CTL2 register snapshot and the remaining per-register conditions before broadening any safety checks.
+MST / dock independent displays, HDMI 4K60 SCDC, RGB8, Video C, 120Hz, full system sleep, or the possibility that more than one `dpSource` admission check is failing. The CTL2-only build is verified on this Yoga at 60Hz. On other systems, if it still reports `InvalidDPSource`, get a CTL2 register snapshot and remaining per-register conditions before broadening any safety checks.
