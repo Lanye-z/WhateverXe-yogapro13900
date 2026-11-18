@@ -1,0 +1,94 @@
+name: Yoga A7A0 - official 0.8.3 with eDP CTL2 bit3
+
+on:
+  push:
+    branches:
+      - experiment/wex-0.8.3-a7a0-ctl2
+    paths:
+      - 'wex083/**'
+      - '.github/workflows/yoga-0.8.3-a7a0-ctl2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-a7a0-test:
+    runs-on: macos-15-intel
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout official WhateverXe 0.8.3 (PINNED)
+        uses: actions/checkout@v4
+        with:
+          repository: b00t0x/WhateverXe
+          ref: f26a36880c49ea1063393d943527808c0f38feca
+          path: Source
+          persist-credentials: false
+      - name: Checkout pinned MacKernelSDK
+        uses: actions/checkout@v4
+        with:
+          repository: acidanthera/MacKernelSDK
+          ref: 05094e5e88cec7caedbfb35e8449ed0db94bf95b
+          path: MacKernelSDK
+          persist-credentials: false
+      - name: Checkout Lilu 1.7.2 headers and library
+        uses: actions/checkout@v4
+        with:
+          repository: acidanthera/Lilu
+          ref: 1.7.2
+          path: Lilu
+          persist-credentials: false
+      - name: Verify exact upstream and apply ONLY panel CTL2 exception
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C Source rev-parse HEAD)" = "f26a36880c49ea1063393d943527808c0f38feca"
+          python3 wex083/verify_ctl2.py --source Source --check-original
+          git -C Source apply --check "$GITHUB_WORKSPACE/wex083/0001-a7a0-edp-ctl2-bit3-083.patch"
+          git -C Source apply "$GITHUB_WORKSPACE/wex083/0001-a7a0-edp-ctl2-bit3-083.patch"
+          python3 wex083/verify_ctl2.py --source Source --check-patched
+          git -C Source diff --check
+          test "$(git -C Source diff --name-only | wc -l | tr -d ' ')" = 1
+          test "$(git -C Source diff --name-only)" = WhateverXe/kern_alderlake_n.hpp
+          mkdir -p Source/Lilu.kext/Contents/Resources
+          ln -s "$GITHUB_WORKSPACE/Lilu/Lilu/Headers" Source/Lilu.kext/Contents/Resources/Headers
+          ln -s "$GITHUB_WORKSPACE/Lilu/Lilu/Library" Source/Lilu.kext/Contents/Resources/Library
+      - name: Run all official 0.8.3 CPU regression tests
+        working-directory: Source
+        run: python3 tools/test.py
+      - name: Build RELEASE from patched official 0.8.3
+        working-directory: Source
+        run: |
+          python3 tools/build.py --release --sdk "$GITHUB_WORKSPACE/MacKernelSDK" --output build/RELEASE
+          python3 tools/check_compat_version.py build/RELEASE
+      - name: Verify version and package TEST-only Kext
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          KEXT=Source/build/RELEASE/WhateverXe.kext
+          test -s "$KEXT/Contents/MacOS/WhateverXe"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$KEXT/Contents/Info.plist" | grep -qx '0.8.3'
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$KEXT/Contents/Info.plist" | grep -qx 'org.b00t0x.WhateverXe'
+          ditto -c -k --keepParent "$KEXT" dist/WhateverXe_0.8.3_Yoga_A7A0_CTL2_TEST_RELEASE.zip
+          unzip -t dist/WhateverXe_0.8.3_Yoga_A7A0_CTL2_TEST_RELEASE.zip
+          git -C Source diff -- WhateverXe/kern_alderlake_n.hpp > dist/APPLIED_PATCH.diff
+          cp wex083/README.md dist/TEST_AND_ROLLBACK.md
+          cp Source/build/RELEASE/build-manifest.json dist/build-manifest.json
+          {
+            echo "Base: official WhateverXe 0.8.3, commit f26a36880c49ea1063393d943527808c0f38feca"
+            echo "Patch: internal eDP CTL2 bit3 only (no HDMI, no video, no sleep changes)"
+            echo "Graphics: official 0.4.4 already installed separately; not included"
+            echo "Source: $GITHUB_REPOSITORY@$GITHUB_SHA"
+            xcrun dwarfdump --uuid "$KEXT/Contents/MacOS/WhateverXe"
+          } > dist/BUILD_INFO.txt
+          (cd dist && shasum -a 256 WhateverXe_0.8.3_Yoga_A7A0_CTL2_TEST_RELEASE.zip > SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WhateverXe-0.8.3-Yoga-A7A0-CTL2-TEST
+          path: dist/*
+          retention-days: 30
+          if-no-files-found: error
