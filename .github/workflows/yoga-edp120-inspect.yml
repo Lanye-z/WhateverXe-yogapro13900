@@ -1,0 +1,40 @@
+name: Yoga eDP120 - inspect Tahoe donor clock (read only)
+
+on:
+  push:
+    branches:
+      - experiment/wex-0.8.3-yoga-edp120
+    paths:
+      - 'wex120/inspect_donor.py'
+      - '.github/workflows/yoga-edp120-inspect.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  donor-inspect:
+    runs-on: macos-15-intel
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Fetch exact 0.4.4 donor payload without installing
+        uses: actions/checkout@v4
+        with:
+          repository: b00t0x/WhateverXe-Graphics
+          ref: cf0a21841d0464dd0b0e9c5b1db28d47137a6832
+          path: Graphics
+          persist-credentials: false
+      - name: Inspect exact native framebuffer clocks and symbols
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 wex120/inspect_donor.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Yoga-EDP120-Tahoe-Clock-Donor-Inspection
+          path: dist/*
+          retention-days: 30
+          if-no-files-found: error
