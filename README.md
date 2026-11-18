@@ -1,16 +1,33 @@
 # WhateverXe for Lenovo Yoga Pro 14s IRH8 (82Y7) — integrated A7A0 test build
 
-> **Newer 0.8.3 hardware results (2026-11-18):** The earlier 0.7.0-based
-> `main` integration below is **not** the current working 3K120 driver.
-> [0.8.3 CTL2 experiment](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-a7a0-ctl2)
-> restored A7A0 internal eDP, 1536 MB and Metal 2 at 60Hz.
-> [0.8.3 Yoga eDP120 V1](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-yoga-edp120)
-> then achieved **native 3072×1920 @ 120.00Hz**, with
-> `IOFBCurrentPixelClock=775690000`, Metal 2 / 1536 MB, using only
-> `-wex-yoga-edp120-admit`. The optional V2 Watermark change was CI-built but
-> not required/tested; a brief Apple Logo startup flash is still open.
-> **Neither 0.8.3 experiment is merged into `main`.** Use the experiment
-> branch-specific test artifact rather than the old `main` build to test 3K120.
+> **Newer WhateverXe 0.8.3 internal eDP results (2026-11-18; NOT merged here):**
+> The `main` branch below remains the **separate earlier 0.7.0-based
+> HDMI/RGB8/Video C experimental integration**, not the proven 0.8.3 3K120
+> source or Kext.
+>
+> - [CTL2 0.8.3 branch](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-a7a0-ctl2):
+>   native A7A0 eDP acceleration verified at **3072×1920 @ 60Hz,
+>   Metal 2 / 1536MB**. Can serve as a separate recovery EFI baseline.
+> - [eDP120 V1/V2 branch](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-yoga-edp120):
+>   V1 eDP-only 720→800MHz admission restored a functional desktop
+>   120Hz mode (775.69MHz), but restarting with saved 120Hz repeatedly
+>   black-screened.
+> - **[WM_ONLY bootfix branch](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-yoga-edp120-bootfix):
+>   current real-device tested 3K120 candidate.** WM_ONLY has exactly
+>   V2's source changes (CTL2 + eDP admission + opt-in two-pixels/CDCLK WM);
+>   **one successful restart directly into saved 120Hz** was followed by
+>   `IOFBCurrentPixelClock=775690000`, Metal 2 / 1536MB and
+>   `WEXYogaEDP120WMEnabled=Yes`. Long-term, repeated cold/reboot and
+>   sleep/wake stability remain **untested**; do not claim a stable release.
+> - [Apple Logo handoff research](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-yoga-bootlogo):
+>   brief (<1s) boot glitch unresolved but **deprioritized by the user**.
+>   No #131 tiling fix has been installed; #102/#104 clock/panel changes,
+>   SetupTimings, eDP Keep and DSC fixes are **not included in WM_ONLY**.
+>
+> Preserve a separate working 60Hz EFI. No 0.8.3 high-refresh code or
+> Graphics 0.4.4 compatibility changes have been merged into this `main`.
+> Use the actual [tested WM_ONLY artifact](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44315637323/artifacts/14431873939)
+> for reference, **not** this branch's integrated Kext.
 
 **Experimental, tested on the Yoga A7A0, NOT a crash-free daily-use release.**
 This repository's `main` GitHub Actions build integrates E multi-display fixes,
