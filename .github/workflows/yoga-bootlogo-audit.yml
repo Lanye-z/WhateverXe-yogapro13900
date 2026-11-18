@@ -1,0 +1,42 @@
+name: Yoga 0.8.3 boot-logo source audit (read-only)
+
+on:
+  push:
+    branches:
+      - experiment/wex-0.8.3-yoga-bootlogo
+    paths:
+      - 'wexboot/**'
+      - '.github/workflows/yoga-bootlogo-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: macos-15-intel
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: b00t0x/WhateverXe
+          ref: f26a36880c49ea1063393d943527808c0f38feca
+          path: Source
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: b00t0x/WhateverXe-Graphics
+          ref: cf0a21841d0464dd0b0e9c5b1db28d47137a6832
+          path: Graphics
+          persist-credentials: false
+      - name: Inspect exact native framebuffer and accelerator symbols
+        run: python3 wexboot/inspect_donor.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Yoga-3K120-BootLogo-Source-Audit
+          path: dist/*
+          retention-days: 30
+          if-no-files-found: error
