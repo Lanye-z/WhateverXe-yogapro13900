@@ -11,7 +11,7 @@ compile. The original CTL2-only run did not save a direct live CTL2 register val
 **Not fixed on this branch:** 120Hz, HDMI 4K60, Thunderbolt dock, boot logo
 handoff flash, sleep, HEVC or external output. A **separate follow-on**
 [Yoga eDP120 branch](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-yoga-edp120)
-has since achieved 3K120 on the same hardware (see its README). Do not
+verified 3K120 desktop mode on this hardware but suffered black screens on reboot into the saved 120Hz state. The follow-on [WM_ONLY / source-equivalent V2](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-yoga-edp120-bootfix) completed one successful reboot directly into 3K120 at 775.69MHz, Metal 2 / 1536MB. This later result is **not included** in this CTL2-only Kext; long-term, display sleep and repeated-reboot stability remain open. Do not
 treat that result as included in this CTL2-only Kext.
 
 ## Why this exists
