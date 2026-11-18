@@ -6,7 +6,7 @@ CTL2 bit 3 exception restored normal acceleration: **1536 MB, Metal 2,
 3072×1920 @ 60Hz** on Yoga i9-13900H / A7A0 rev 04, macOS Tahoe
 26.7.1 (25G241), Graphics 0.4.4. CI [run 44270166468](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44270166468)
 also succeeded. This is a **real device test**, not merely a successful
-compile. A direct new live CTL2 register read was not recorded.
+compile. The original CTL2-only run did not save a direct live CTL2 register value. **Follow-on V1 evidence now does**: its cached pre-handoff `N97Display13Boot` reports `TRANS_DDI_FUNC_CTL2_A=0x00000008`, providing independent corroboration of the rejected secondary-mode bit. This later capture must not be misrepresented as data collected during the original CTL2-only run.
 
 **Not fixed on this branch:** 120Hz, HDMI 4K60, Thunderbolt dock, boot logo
 handoff flash, sleep, HEVC or external output. A **separate follow-on**
@@ -26,7 +26,7 @@ N97NativeStartAllowed = No
 WEXDisplay13BootReady = No
 ```
 
-The `0b` word is decimal 11, `InvalidDPSource`. Previous 0.7.0-based Yoga experiments identified firmware `TRANS_DDI_FUNC_CTL2=0x00000008` (CMTG_SECONDARY_MODE), and a guarded panel-only exception was used to bring up Metal. **This new log does not independently measure CTL2**, so it is a strong leading explanation, not a proven exclusive root cause.
+The `0b` word is decimal 11, `InvalidDPSource`. Prior 0.7.0-based testing identified `TRANS_DDI_FUNC_CTL2=0x00000008` (CMTG_SECONDARY_MODE). A later **2026-11-18 V1 pre-handoff register snapshot directly captured CTL2=0x00000008** on the same A7A0 Yoga. The panel-only CTL2 exception restored real Metal acceleration in the 0.8.3 hardware A/B test; this strengthens the diagnosis but does not prove no other admission condition was involved.
 
 ## What is built
 
