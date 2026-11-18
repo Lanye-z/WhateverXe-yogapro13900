@@ -31,7 +31,7 @@ def main():
     if args.trial == 'WM_GATE':
         new = '''                if(!evidence[7]) {
                     // #102 gated recovery: no change without A7A0 panel and opt-in.
-                    const bool retry=yogaEDP120Scoped &&
+                    const bool retry=callbackXE->yogaEDP120Scoped &&
                         checkKernelArgument("-wex-yoga-edp120-gateretry");
                     unsigned tries=0;
                     for(;;) {
@@ -53,12 +53,27 @@ def main():
         if '-wex-yoga-edp120-gateretry' in payload: raise RuntimeError('argument already registered')
         payload['-wex-yoga-edp120-gateretry']=[]
         fixture.write_text(json.dumps(payload,indent=2)+'\n')
+        # The existing standalone C++ clock runtime test extracts this static
+        # production method into a minimal XE fixture. Supply the new opt-in
+        # flag/read-only hardware membership as OFF so the existing native
+        # tests still exercise the unchanged original behavior.
+        testfile=src/'tests/display13_clock_runtime_fixture.cpp'
+        test=testfile.read_text()
+        test=replace_once(test,'struct XE {',
+            'bool checkKernelArgument(const char *) {return false;}\nstruct XE {',
+            'isolated clock fixture boot arg stub')
+        test=replace_once(test,
+            ' bool display13FBClockSetHookReady=true;',
+            ' bool yogaEDP120Scoped=false;\n bool display13FBClockSetHookReady=true;',
+            'isolated clock fixture physical ID stub')
+        testfile.write_text(test)
     else:
         assert '-wex-yoga-edp120-gateretry' not in body
     changed=set(subprocess.check_output(['git','-C',str(src),'diff','--name-only'],text=True).splitlines())
     expected={'WhateverXe/kern_alderlake_n.hpp','WhateverXe/kern_xe.cpp',
         'WhateverXe/kern_xe.hpp','WhateverXe/kern_display13_wm.hpp',
         'tests/fixtures/boot_argument_names.json'}
+    if args.trial == 'WM_GATE': expected.add('tests/display13_clock_runtime_fixture.cpp')
     if changed != expected: raise RuntimeError('unexpected source files '+repr(changed))
     subprocess.run(['git','-C',str(src),'diff','--check'],check=True)
     print('VERIFIED PINNED 0.8.3 bootfix trial',args.trial)
