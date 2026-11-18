@@ -1,27 +1,17 @@
-# Yoga Pro 14s IRH8 — Apple Logo flash research, based on proven 3K120 V1
+# Yoga Pro 14s IRH8 (82Y7) — Apple Logo handoff glitch investigation
 
-**STATUS: DIAGNOSTIC ONLY (2026-11-18).** No boot-flash fix is claimed or installed. The **working 0.8.3 3K120 V1 Kext is unchanged** in this branch: the modifications are research documentation, an offline early-GOP register decoder and a *read-only* GitHub Actions binary/source audit.
+**Status (2026-11-18): INVESTIGATION PAUSED at user's request; NOT FIXED.** The Apple Logo to login handoff may briefly (<1 second) show garbling/red or repeated logo frames; normal desktop image appears afterward on the currently tested WM_ONLY / source-equivalent V2 3K120 configuration. Because the glitch is short and the user considers it low priority, further changes are deferred pending real-world 120Hz stability observation.
 
-## What was confirmed
+**Important distinction:** Admission-only V1 previously booted to a persistent black screen after saving 120Hz, with or without `-v`. That is **separate from the subsecond cosmetic handoff issue**. Subsequently, [WM_ONLY](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-yoga-edp120-bootfix) succeeded on **one reboot directly into 120Hz**; post-reboot IORegistry confirmed `WEXYogaEDP120WMEnabled=Yes`, `IOFBCurrentPixelClock=775690000`, Metal 2 and 1536MB. The boot black-screen regression is thus provisionally addressed on WM_ONLY, whereas the brief logo glitch remains unresolved. Repeated cold boots, sleep/wake and long-term stability have **not** been tested yet.
 
-- The original [V1 3K120 experiment](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-yoga-edp120) is real-hardware verified at **3072×1920@120.00Hz, Metal 2, 1536 MB**.
-- The Apple Logo glitches for under one second during startup, even without the 800 MHz option (smaller extent). The boot artifact is unresolved.
-- The saved IORegistry `N97Display13Boot` record proves **firmware/GOP LINEAR scanout** on pipe A: `PLANE_CTL=0x94000008`, `PLANE_STRIDE=0xC0` (12,288 bytes/row), `PLANE_SURF=0`, native 3072×1920.
-- Issue [#131](https://github.com/b00t0x/WhateverXe/issues/131) found a later LINEAR-GOP vs X-tiled resource mismatch on another Intel backend (A78B), but the user's actual Yoga **A7A0 and `-v` boot** have not been proven to exhibit the same later defect.
-- [Source audit run 44300608445](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44300608445) **passed**; exact Graphics 0.4.4 Tahoe accelerator has `IGAccelDisplayPipe::initFramebufferResource@0x7F160` and `initResourceInfo@0x7EE9A`, as referenced by #131. This confirms relevant code exists, **not** that the runtime bug is the same.
+## What this diagnostic branch contains
 
-## First safe A/B test
+- **No modified Kext or display write fix.** The working WM_ONLY Kext remains unmodified.
+- A read-only offline `N97Display13Boot` register decoder and a pinned Graphics 0.4.4 / official WhateverXe 0.8.3 source audit.
+- Prior saved firmware GOP snapshot: native pipe A, `PLANE_CTL=0x94000008` (LINEAR), `PLANE_STRIDE=0xC0` = 12,288B/row, `PLANE_SURF=0`, `TRANS_DDI_FUNC_CTL2=0x8`.
+- [Issue #131](https://github.com/b00t0x/WhateverXe/issues/131) diagnosed a GOP LINEAR / X-Tiled resource mismatch on **different** Intel hardware. The same failure mode is *not proved* on this A7A0 Yoga, and no tiling patch has been applied.
+- The attempted `-v` A/B test is **inconclusive** because it was conducted under V1 with the saved 120Hz mode that also failed to reboot with `-v`. **Do not repeat that experiment on the working WM_ONLY just to eliminate a brief flash**.
 
-In a *duplicate test EFI only*, remove **exactly the standalone `-v`** from your current boot args; keep `-vi2c-force-polling`, all graphics arguments, the V1 120Hz Kext, and `-wex-yoga-edp120-admit` unchanged. Compare whether the short Apple Logo flash disappears, changes shape, or remains. A slow-motion phone recording can distinguish repeated/tiled logos from a normal mode-reset blink. Do not mistake a cleaner boot animation for proof that the buffer/resource mismatch is corrected.
+See [the detailed research log and audit](wexboot/README.md). The unchanged 0.8.3 WM_ONLY test remains the preferred 3K120 candidate; retain the independent 60Hz recovery EFI.
 
-For the register decoder, reproducibility, exact donor audit and **rollback precautions**, see [wexboot/README.md](wexboot/README.md).
-
-No changes have been made to `main`, Graphics installation, HDMI, Thunderbolt, EDID, 120Hz admission, WM, or physical eDP programming in this boot-logo branch.
-
-> **New boot test observation (2026-11-18):** after selecting 120Hz, the V1
-> test EFI was booted twice without `-v`; both attempts showed a second Apple
-> logo then a black internal panel. Cause is not yet isolated because the saved
-> 120Hz mode remained active. Restore `-v` for the first recovery attempt; if
-> still black, use the separate CTL2-only 60Hz recovery EFI. See the
-> [boot-logo investigation](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-yoga-bootlogo)
-> and the A7A0-specific upstream precedent [issue #104](https://github.com/b00t0x/WhateverXe/issues/104).
+**No further boot-logo work is planned until the user explicitly chooses to resume it.**

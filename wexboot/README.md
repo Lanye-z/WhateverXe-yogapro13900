@@ -1,8 +1,8 @@
 # Yoga 0.8.3 3K120 Apple Logo flash — independent investigation
 
-**Status (2026-11-18): DIAGNOSIS, NOT A FIX.** Forked from hardware-verified
+**Status (2026-11-18): INVESTIGATION DEFERRED BY THE USER; DIAGNOSIS ONLY, NOT A FIX.** Forked from hardware-verified
 [3K120 V1](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-yoga-edp120).
-The working V1 Kext is deliberately unchanged. This branch contains only
+The last proven WM_ONLY / source-equivalent V2 Kext is deliberately unchanged. This branch contains only
 **read-only offline scripts** and a macOS GitHub Action for exact public donor
 symbol inspection; no untested framebuffer writes are enabled.
 
@@ -42,7 +42,7 @@ Critical differences and precautions:
 - Another #131 tester found that rewriting `res+0x194` **on every creation**
   corrupted shutdown; a first-creation-only condition is essential if the
   mechanism is proved and a real patch is attempted.
-- Do **not** change 120Hz, EDID, WM, HDMI, DSC, system Graphics binaries,
+- Do **not** modify the working WM_ONLY 120Hz baseline, EDID, HDMI, DSC, system Graphics binaries,
   plane surfaces/tiling or framebuffer resource descriptions at this stage.
 
 ## Exact Graphics 0.4.4 donor audit — CI passed
@@ -67,18 +67,22 @@ The `yoga-bootlogo-audit.yml` workflow independently inspects the **exact**
 public 0.8.3 C++ source and Graphics 0.4.4 Tahoe binaries for the functions
 referenced by issue #131; it does not create a Kext.
 
-## First physical A/B experiment (no source changes)
+## Previous `-v` A/B test — now understood as inconclusive
 
-Keep the currently verified V1 USB/EFI safe. Make a **second test EFI copy**,
-with the same 0.8.3 eDP120 V1 Kext and all other boot arguments unchanged.
-In the second test EFI only, remove the standalone `-v` argument. Observe
-whether the Apple Logo flash (1) disappears, (2) displays duplicated logos or
-white noise, or (3) is unchanged. If recording, use phone slow-motion video
-and compare *at the exact stage between logo and login*.
+An earlier admission-only **V1** test removed `-v` after the desktop had
+saved 120Hz. Two black-screen boots followed; restoring `-v` still black-
+screened when `-wex-yoga-edp120-admit` was present. Removing admission
+restored normal 60Hz startup. Thus the evidence points to a **saved-120Hz
+V1 cold-recovery problem**, not a proved verbose-boot cause of the short
+logo glitch. Do **not** repeat no-`-v` testing on the working WM_ONLY as
+an assumed flash repair.
 
-This single-variable test is important because #131 explicitly excludes
-`-v`/text-boot from its reference patch. Changing `-v` is a diagnostic
-configuration comparison, **not** a confirmed root-cause repair.
+WM_ONLY (source-equivalent to the original V2) later passed one saved-120Hz
+reboot; post-reboot `WEXYogaEDP120WMEnabled=Yes`, `IOFBCurrentPixelClock=
+775690000`, 120.00Hz and Metal 2 / 1536MB were recorded. This does not
+resolve the cosmetic Apple Logo flash or establish long-term stability.
+The user is now using WM_ONLY normally and has asked to **defer** this
+investigation.
 
 ## Next code decision
 
@@ -116,15 +120,12 @@ distinct candidate for a no-`-v` GOP-to-WindowServer resource-layout mismatch.
 The Yoga's saved early GOP snapshot is LINEAR, but no later Yoga resource
 modifier / first-blit receipt has yet been captured.
 
-### Recovery-first test order
+### Current decision — no additional edits or tests
 
-1. Restore `-v` in the **same V1 test EFI** and attempt one boot, leaving all
-   other arguments unchanged. If it reaches the desktop, immediately select
-   60Hz before the next reboot.
-2. If it remains black, stop using this V1 EFI and boot the independently
-   verified CTL2-only 60Hz recovery EFI (without `-wex-yoga-edp120-admit`).
-3. Do not reset NVRAM, enable V2's WM flag, or apply a guessed tiling / plane
-   write. Preserve the current V1 Kext and config for later comparison.
+Keep the current successful WM_ONLY configuration and an independent 60Hz
+CTL2 recovery EFI. The brief logo flash may be revisited only if it starts
+affecting desktop output, causes persistent black screens or the user elects
+to pursue it. No GPIO/plane writes, resource-tiling hooks, EDID changes,
+`-v` switching or other issue patches are recommended now.
 
-This observation is recorded as an unresolved regression; no boot-flash or
-black-screen repair is claimed in this branch.
+**Status: issue still open, intentionally deferred.**
