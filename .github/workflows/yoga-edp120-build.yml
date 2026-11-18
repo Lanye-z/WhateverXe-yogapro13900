@@ -1,0 +1,101 @@
+name: Yoga eDP120 - V1 admission and V2 WM test RELEASE
+
+on:
+  push:
+    branches:
+      - experiment/wex-0.8.3-yoga-edp120
+    paths:
+      - 'wex120/prepare_120.py'
+      - 'wex120/README.md'
+      - '.github/workflows/yoga-edp120-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15-intel
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [V1, V2]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout official WhateverXe 0.8.3 exactly
+        uses: actions/checkout@v4
+        with:
+          repository: b00t0x/WhateverXe
+          ref: f26a36880c49ea1063393d943527808c0f38feca
+          path: Source
+          persist-credentials: false
+      - name: Pin public Tahoe Graphics 0.4.4 donor for fingerprint verification
+        uses: actions/checkout@v4
+        with:
+          repository: b00t0x/WhateverXe-Graphics
+          ref: cf0a21841d0464dd0b0e9c5b1db28d47137a6832
+          path: Graphics
+          persist-credentials: false
+      - name: Checkout MacKernelSDK
+        uses: actions/checkout@v4
+        with:
+          repository: acidanthera/MacKernelSDK
+          ref: 05094e5e88cec7caedbfb35e8449ed0db94bf95b
+          path: MacKernelSDK
+          persist-credentials: false
+      - name: Checkout Lilu 1.7.2 build interface
+        uses: actions/checkout@v4
+        with:
+          repository: acidanthera/Lilu
+          ref: 1.7.2
+          path: Lilu
+          persist-credentials: false
+      - name: Prepare scoped Yoga eDP120 variant from verified upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 wex120/prepare_120.py Source Graphics --variant ${{ matrix.variant }}
+          mkdir -p Source/Lilu.kext/Contents/Resources
+          ln -s "$GITHUB_WORKSPACE/Lilu/Lilu/Headers" Source/Lilu.kext/Contents/Resources/Headers
+          ln -s "$GITHUB_WORKSPACE/Lilu/Lilu/Library" Source/Lilu.kext/Contents/Resources/Library
+      - name: Official 0.8.3 source regression suite
+        working-directory: Source
+        run: python3 tools/test.py
+      - name: Build RELEASE and verify bundle/compat
+        working-directory: Source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/build.py --release --sdk "$GITHUB_WORKSPACE/MacKernelSDK" --output build/RELEASE
+          python3 tools/check_compat_version.py build/RELEASE
+      - name: Package uninstalled TEST-only driver
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEXT=Source/build/RELEASE/WhateverXe.kext
+          test -s "$KEXT/Contents/MacOS/WhateverXe"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$KEXT/Contents/Info.plist" | grep -qx '0.8.3'
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$KEXT/Contents/Info.plist" | grep -qx 'org.b00t0x.WhateverXe'
+          mkdir -p dist
+          ditto -c -k --keepParent "$KEXT" "dist/WhateverXe_0.8.3_Yoga_EDP120_${{ matrix.variant }}_TEST_RELEASE.zip"
+          git -C Source diff -- WhateverXe tests/fixtures/boot_argument_names.json > "dist/PATCH_${{ matrix.variant }}.diff"
+          cp wex120/README.md "dist/INSTALL_AND_ROLLBACK.md"
+          cp Source/build/RELEASE/build-manifest.json dist/build-manifest.json
+          (cd dist && shasum -a 256 *TEST_RELEASE.zip > SHA256SUMS)
+          unzip -t "dist/WhateverXe_0.8.3_Yoga_EDP120_${{ matrix.variant }}_TEST_RELEASE.zip"
+          {
+            echo "Build from official 0.8.3 f26a36880c49ea1063393d943527808c0f38feca"
+            echo "Graphics 0.4.4 expected on test machine but not bundled here"
+            echo "Variant: ${{ matrix.variant }}"
+            echo "No experimental patch active until explicit boot argument"
+            xcrun dwarfdump --uuid "$KEXT/Contents/MacOS/WhateverXe"
+          } > dist/BUILD_INFO.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WhateverXe-0.8.3-Yoga-eDP120-${{ matrix.variant }}-TEST
+          path: dist/*
+          retention-days: 30
+          if-no-files-found: error
