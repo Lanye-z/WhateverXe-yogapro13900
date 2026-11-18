@@ -27,6 +27,18 @@ jobs:
           ref: cf0a21841d0464dd0b0e9c5b1db28d47137a6832
           path: Graphics
           persist-credentials: false
+      - name: Fetch exact official WhateverXe 0.8.3 source
+        uses: actions/checkout@v4
+        with:
+          repository: b00t0x/WhateverXe
+          ref: f26a36880c49ea1063393d943527808c0f38feca
+          path: Source
+          persist-credentials: false
+      - name: Inspect WhateverXe 0.8.3 hook sites
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 wex120/inspect_source.py
       - name: Inspect exact native framebuffer clocks and symbols
         shell: bash
         run: |
