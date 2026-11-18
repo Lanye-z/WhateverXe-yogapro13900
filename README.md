@@ -2,6 +2,9 @@
 
 **2026-11-18 STATUS: READ-ONLY PORT-QUALIFICATION EXPERIMENT, NOT A VERIFIED MULTI-MONITOR REPAIR.**
 
+**CI passed:** [GitHub Actions run 44327816796](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44327816796) completed official 0.8.3 tests, RELEASE compilation, compatibility checks and test Kext packaging. [Download multi-display audit TEST Kext](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44327816796/artifacts/14438526678). This is **not** proof that an external display works; it adds only opt-in read-only port telemetry and retains WM_ONLY/V2 behavior.
+
+
 This branch is based on the real-device-verified **WM_ONLY** 3K120 variant,
 which is source-identical to the original 0.8.3 eDP120 V2 patch generator.
 It includes **only one additional optional boot argument,
