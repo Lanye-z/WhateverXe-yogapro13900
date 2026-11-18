@@ -1,10 +1,38 @@
 # Yoga A7A0: 3K120 cold-start black-screen experiments
 
-**Status: build/test candidates, not proven fixes.** Do not replace the known-good EFI or merge into main. Builds use pinned WhateverXe **0.8.3** and independently byte-verified Graphics 0.4.4. The previously successful V1 120Hz kext, code and main are unchanged.
+**Status (2026-11-18): WM_ONLY has ONE SUCCESSFUL HARDWARE REBOOT at saved 3072×1920 @ 120Hz on the target A7A0 Yoga.** The prior V1 booted black in the same saved 120Hz condition. Long-term/cold-start, sleep/wake and repeated-reboot reliability remain unverified. Do not replace the known-good recovery EFI or merge into main. Builds use pinned WhateverXe **0.8.3** and independently byte-verified Graphics 0.4.4. The previously successful V1 120Hz kext, code and main are unchanged.
 
 ## Real machine evidence
 
 The current 60Hz boot with V1 kext but without `-wex-yoga-edp120-admit` works: Metal 2, 1536MB. With admission, the user could change 60→120Hz at the desktop, with actual `IOFBCurrentPixelClock=775690000` and CoreGraphics 120.0Hz. After rebooting in that saved mode, both with/without `-v`, a black internal screen followed. In failed boots at 20:22 and 20:25 WindowServer requested mode `0x80001001` and logged thousands of `Fallback GPU Display Pipe transaction submission failed` errors. A 20:50 failed boot had no identical error flood. With admission off, working 20:54 boot requested `0x80001000`. This points to 120Hz cold-mode restore, but the exact failure register remains unidentified.
+
+## 2026-11-18 real device update
+
+The owner installed the **WM_ONLY** build, rebooted after a 120Hz selection
+persisted, and reached a normal macOS display with **120Hz shown as the
+selected refresh rate**. This is the critical one-boot A/B result:
+`V1 admission-only` failed to display on warm restart in saved 120Hz,
+whereas `V1 admission + optional WM two-pixel/CDCLK correction`
+successfully displayed on a reboot. The screenshot establishes the macOS
+UI selection and successful screen output. Post-reboot
+`IOFBCurrentPixelClock`, `CGDisplayCopyDisplayMode`, Metal state and
+`WEXYogaEDP120WMEnabled` have **not yet been reported for this successful
+WM_ONLY reboot**; prior 120Hz runtime readings were collected under V1.
+This is strong evidence the WM adjustment helped but not a direct
+instrumented capture of the failed clockFits decision.
+
+**Important:** WM_ONLY is equivalent in source changes to the earlier V2
+variant of `wex120/prepare_120.py` (`prepare(src, graphics, "V2")`).
+It DOES NOT include the WorkLoop gate retry from upstream issue #102
+or the deferred-clock / panel-admission changes from issue #104.
+WM_GATE is separate, CI-built, and **not hardware-tested**.
+
+CI [run 44315637323](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44315637323)
+passed for both variants. The first WM_GATE attempt in run 44314505201
+failed the isolated clock-runtime regression test and was subsequently
+fixed and retested; use the newer run for artifact provenance.
+- [WM_ONLY artifact from successful CI](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44315637323/artifacts/14431873939)
+- [WM_GATE artifact (not device-verified)](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44315637323/artifacts/14431804529)
 
 ## Two isolated variants
 

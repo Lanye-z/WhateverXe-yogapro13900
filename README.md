@@ -1,6 +1,15 @@
 # Lenovo Yoga Pro 14s IRH8 (82Y7) — WhateverXe 0.8.3, 3K 120Hz
 
-**Status (2026-11-18): V1 VERIFIED ON REAL HARDWARE at 3072×1920 @ 120.00Hz, Metal 2, 1536 MB VRAM.** This branch is the **recommended working internal-display test baseline**, but it is not a release validated for long-term sleep/wake, video codecs, external displays or dock operation.
+**Status (2026-11-18): WM_ONLY has one successful real-hardware restart showing 120Hz, following repeated black-screen boots with admission-only V1.** This branch is a **new boot recovery experiment**, not a long-term-validated release. V1 previously ran 120Hz in the desktop with Metal 2 / 1536 MB but could not reliably boot back into the saved 120Hz state. WM_ONLY adds the V2 opt-in WM two-pixels/CDCLK correction. No Gate retry or #104 deferred-clock/panel-admission changes are present in WM_ONLY.
+
+> **WM_ONLY first successful 120Hz restart (2026-11-18):** After changing to
+> this test Kext, the Yoga rebooted successfully and macOS Displays showed
+> 120Hz already selected. This is a meaningful A/B improvement over the
+> original V1 cold-restore black screens. Continued repeat-reboot, sleep,
+> output stability and post-reboot IORegistry are still outstanding.
+> [WM_ONLY CI artifact](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44315637323/artifacts/14431873939);
+> [WM_GATE](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44315637323/artifacts/14431804529)
+> is separate and not needed for this successful reboot.
 
 ## Tested configuration
 
