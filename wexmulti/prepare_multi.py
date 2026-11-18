@@ -32,7 +32,7 @@ def run(src,graphics):
     // upstream; publish the actual selected VBT ports without changing them.
     if(pci->configRead16(0x02)==0xA7A0 &&
        checkKernelArgument("-wex-yoga-multi-audit")) {
-        const uint32_t wexYogaMultiWiring[] {
+        uint32_t wexYogaMultiWiring[] {
             1U, uint32_t(board.valid), uint32_t(board.described()),
             board.selected(),board.panel,board.hdmi,board.dp,board.typeC,
             board.hotplug(),board.links()
@@ -47,7 +47,7 @@ def run(src,graphics):
     if(yogaEDP120Scoped && checkKernelArgument("-wex-yoga-multi-audit")) {
         // 1=record format. These are already-computed states; do not
         // override any plugin readiness, hotplug bits or output topology.
-        const uint32_t wexYogaMultiHooks[] {
+        uint32_t wexYogaMultiHooks[] {
             1U, uint32_t(display13FBTopologyHooksReady),
             uint32_t(display13FBOutputHooksReady),
             uint32_t(display13FBTCHooksReady),
