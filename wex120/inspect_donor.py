@@ -54,3 +54,16 @@ for tool,args in [
         matches=[f"{i+1}: {lines[i]}" for i in sorted(selected)]
         (out/"donor_relevant_disassembly.txt").write_text("\n".join(matches)+"\n")
         print("disasm snippets", "\n".join(matches[:100])[:10000])
+        focus=set()
+        # Study both conditional 720 MHz assignments in getOnlineInfo.
+        for addr in ("000000000002e58f", "000000000002e90d"):
+            hits=[i for i,line in enumerate(lines) if line.startswith(addr)]
+            assert len(hits)==1, (addr,hits)
+            for i in hits:
+                for j in range(max(0,i-95),min(len(lines),i+45)): focus.add(j)
+        selected_text="\n".join(f"{j+1}: {lines[j]}" for j in sorted(focus))+"\n"
+        (out/"donor_getOnlineInfo_720_branches.txt").write_text(selected_text)
+        print("BRANCHES_720_START")
+        print(selected_text[:48000])
+        print("BRANCHES_720_END")
+
