@@ -1,49 +1,45 @@
-# Lenovo Yoga Pro 14s IRH8 (82Y7) — WhateverXe 0.8.3, 3K 120Hz
+# Yoga Pro 14s IRH8 (82Y7) — WhateverXe 0.8.3, 3K120 WM boot recovery
 
-**Status (2026-11-18): WM_ONLY has one successful real-hardware restart showing 120Hz, following repeated black-screen boots with admission-only V1.** This branch is a **new boot recovery experiment**, not a long-term-validated release. V1 previously ran 120Hz in the desktop with Metal 2 / 1536 MB but could not reliably boot back into the saved 120Hz state. WM_ONLY adds the V2 opt-in WM two-pixels/CDCLK correction. No Gate retry or #104 deferred-clock/panel-admission changes are present in WM_ONLY.
+**Status — 2026-11-18: WM_ONLY (source-equivalent to V2) passed one real-device reboot with the previously selected 3072×1920 @ 120Hz mode restored; 775.69MHz pixel clock, Metal 2 and 1536MB verified AFTER that reboot.** The original V1 admission-only test could enter 120Hz from the desktop but repeatedly booted to black with the high-refresh mode saved.
 
-> **WM_ONLY first successful 120Hz restart (2026-11-18):** After changing to
-> this test Kext, the Yoga rebooted successfully and macOS Displays showed
-> 120Hz already selected. This is a meaningful A/B improvement over the
-> original V1 cold-restore black screens. Continued repeat-reboot, sleep,
-> output stability and post-reboot IORegistry are still outstanding.
-> [WM_ONLY CI artifact](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44315637323/artifacts/14431873939);
-> [WM_GATE](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44315637323/artifacts/14431804529)
-> is separate and not needed for this successful reboot.
+**This is a promising candidate, NOT a long-term stable release.** Repeated warm/cold boots, display sleep/wake and full system sleep, external outputs and dock are **not yet validated**. The user is using the current driver normally before providing further stability results. A brief (<1s) Apple Logo flash remains visible; investigation is **deferred**, not fixed. No new unrelated patches should be added at this stage.
 
-## Tested configuration
+## Exact real-hardware evidence
 
-| Item | Actual Yoga test |
+| Evidence after the successful WM_ONLY reboot | Result |
 | --- | --- |
-| Device | Yoga Pro 14s IRH8 (82Y7), i9-13900H, Intel 8086:A7A0 rev 04 |
-| OS / graphics | macOS 26.7.1 (25G241), WhateverXe 0.8.3 + Graphics 0.4.4 + tested CTL2 panel bit-3 exception |
-| Internal eDP panel | Lenovo LEN145-3K, native 3072×1920 |
-| V1 flag | `-wex-yoga-edp120-admit` |
-| Scope and runtime status | `WEXYogaEDP120Scoped=Yes`, `Requested=Yes`, `Ready=Yes`, `Status=4` |
-| Native framebuffer max pixel clock | **720 MHz → 800 MHz** (only internal FB0; other FBs remain 720 MHz) |
-| Actual 120Hz state | `system_profiler: UI Looks like 1536×960 @ 120.00Hz`; CoreGraphics `refreshRate=120.0`; `IOFBCurrentPixelClock=775690000` |
-| Acceleration | **1536 MB / Metal 2** verified after switching to 120Hz |
-| 60Hz fallback | Still available from Displays settings |
-| Known display artifact | **Brief (<1 s) Apple-logo-to-login flash / garbling** on boot; also observed without eDP120 flag at smaller extent; cause and repair not verified |
+| Machine | Lenovo Yoga Pro 14s IRH8, i9-13900H, Intel 8086:A7A0 rev 04, macOS 26.7.1 (25G241), Graphics 0.4.4 |
+| Display | Native 3072×1920 eDP, `UI Looks like 1536×960 @ 120.00Hz` |
+| `IOFBCurrentPixelClock` | **775690000** |
+| Hardware acceleration | **1536MB VRAM / Metal 2** |
+| `WEXYogaEDP120Scoped` | Yes |
+| `WEXYogaEDP120AdmissionRequested / AdmissionReady` | Yes / Yes |
+| `WEXYogaEDP120AdmissionStatus` | **4** |
+| `WEXYogaEDP120WMEnabled` | **Yes** |
 
-The V1 result is **real system-level 120Hz evidence**, not just a visible mode menu. It is not an instrument-measured scan rate and does not establish complete eDP link / DSC / HBR3 negotiation or long-term reliability.
+This demonstrates one successful **system-level** reboot and 120Hz timing, not a photodiode measurement, repeated-start stability proof or proof of the exclusive root cause. The earlier V1 tests confirmed the 800MHz scoped admission fix; the additional WM `clockFits()` change is strongly implicated in the successful boot A/B.
 
-## Downloads and CI
+## Which build to use
 
-Both V1 and V2 passed official 0.8.3 source tests and RELEASE compile in
-[GitHub Actions run 44291923111](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44291923111).
+- **WM_ONLY — real-device-verified candidate**: [CI artifact](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44315637323/artifacts/14431873939). Implements V1 CTL2 bit-3 and scoped eDP `getOnlineInfo` 720→800MHz, plus the scoped 2-pixels/CDCLK Display13 WM check when enabled.
+- **WM_GATE — CI-only, not hardware tested and not currently needed**: [separate artifact](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44315637323/artifacts/14431804529). Adds optional WorkLoop gate retry from upstream issue #102. It was **not present** in the successful WM_ONLY reboot.
 
-- [V1 — confirmed 3K120 on Yoga](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44291923111/artifacts/14421917363) (**recommended**).
-- [V2 — built only, not needed/tested on device](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44291923111/artifacts/14422950304).
+[CI run 44315637323](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44315637323) passed the official 0.8.3 regression suite, RELEASE build and compatibility checks for both packages. **WM_ONLY uses the same source patching logic as the earlier V2 `wex120/prepare_120.py` variant.** The separately compiled original V2 archive was not itself tested on the physical machine; compiled binaries need not be byte-identical.
 
-V2 contains optional `-wex-yoga-edp120-wm`, a Display13 `clockFits()` two-pixel CDCLK budget adjustment. **The verified V1 success used no V2 flag.** Do not infer that WM changes, DSC or link-rate overrides were needed.
+**Not included in WM_ONLY:** eDP Keep, SetupTimings workarounds, DSC changes, issue #102 gate retry, issue #104 deferred-clock or panel-admission modifications, issue #131 GOP/tiling flash fix, HDMI/Thunderbolt repair.
 
-See [full reproducible research and rollback guide](wex120/README.md).
+## Active working configuration
 
-## Keep the verified 120Hz driver isolated
+```text
+-v keepsyms=1 -vi2c-force-polling -ibtcompatbeta -allow3d -disablegfxfirmware -igfxdvmt -wex-yoga-edp120-admit -wex-yoga-edp120-wm
+```
 
-Work only in an independently bootable test EFI, replacing its `WhateverXe.kext` while keeping the known-good copy of the working 0.8.3 CTL2 EFI. A full motherboard sleep/resume regression and external 4K60/Thunderbolt remain unverified. Do not mix WhateverXe and NootedGreen, and do not merge this branch into the earlier 0.7.0-based `main` without a deliberate integration plan.
+Do not add `-wex-yoga-edp120-gateretry` or substitute WM_GATE on this successful setup. The two 120Hz flags default off on installations that do not request them.
 
-### Next experiment: Apple Logo boot flash
+## Safety and next steps
 
-Investigate GOP/Framebuffer/WindowServer scanout handoff, keeping the working V1 unchanged. [WhateverXe issue #131](https://github.com/b00t0x/WhateverXe/issues/131) demonstrates one **different hardware family's** linear GOP versus X-tiled resource mismatch, but its reference fix is gated off with `-v`, whereas this Yoga currently boots with `-v`. The symptom is similar, **not yet a proven common root cause**; first collect A7A0-specific evidence. No “boot flash fixed” claim has been made.
+Keep an independently bootable, untouched 60Hz CTL2 recovery EFI and do not merge the 0.8.3 experiments into the older 0.7.0-based `main` without deliberate integration. **No further forced stress testing is requested now.** In ordinary use, monitor accidental black screens, screen doze recovery, brightness and reboot stability, then update this README only when new device data arrive.
+
+The original V1 cold-restart failure has logs of repeated WindowServer `Fallback GPU Display Pipe transaction submission failed` (one boot also lacked the error flood). The successful WM_ONLY reboot is strong evidence of the needed clock/WM budget correction, but no failed-run hardware state directly proved `clockFits()` was the only blocker.
+
+For exact source patching, safeguards and CI, see [wexbootfix/README.md](wexbootfix/README.md).
