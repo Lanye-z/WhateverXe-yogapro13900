@@ -1,5 +1,17 @@
 # WhateverXe for Lenovo Yoga Pro 14s IRH8 (82Y7) — integrated A7A0 test build
 
+> **Newer 0.8.3 hardware results (2026-11-18):** The earlier 0.7.0-based
+> `main` integration below is **not** the current working 3K120 driver.
+> [0.8.3 CTL2 experiment](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-a7a0-ctl2)
+> restored A7A0 internal eDP, 1536 MB and Metal 2 at 60Hz.
+> [0.8.3 Yoga eDP120 V1](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-yoga-edp120)
+> then achieved **native 3072×1920 @ 120.00Hz**, with
+> `IOFBCurrentPixelClock=775690000`, Metal 2 / 1536 MB, using only
+> `-wex-yoga-edp120-admit`. The optional V2 Watermark change was CI-built but
+> not required/tested; a brief Apple Logo startup flash is still open.
+> **Neither 0.8.3 experiment is merged into `main`.** Use the experiment
+> branch-specific test artifact rather than the old `main` build to test 3K120.
+
 **Experimental, tested on the Yoga A7A0, NOT a crash-free daily-use release.**
 This repository's `main` GitHub Actions build integrates E multi-display fixes,
 HDMI600 and native RGB8, plus optional **Video C** hardware-codec registration
