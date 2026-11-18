@@ -1,7 +1,7 @@
 diff --git a/WhateverXe/kern_alderlake_n.hpp b/WhateverXe/kern_alderlake_n.hpp
 --- a/WhateverXe/kern_alderlake_n.hpp
 +++ b/WhateverXe/kern_alderlake_n.hpp
-@@ -238,9 +238,11 @@ inline bool dpSource(const DisplayReadout &boot,unsigned pipe,unsigned ddi,const Display13TC::Boot *tc=nullptr,bool panel=false) {
+@@ -238,8 +238,10 @@ inline bool dpSource(const DisplayReadout &boot,unsigned pipe,unsigned ddi,const Display13TC::Boot *tc=nullptr,bool panel=false) {
      // payload-allocation bit. Firmware may leave bit8 set on an SST GOP;
      // preserve it and include it in the unchanged-source check, never clear it
      // on an enabled transcoder or infer an MST transport from that bit alone.
