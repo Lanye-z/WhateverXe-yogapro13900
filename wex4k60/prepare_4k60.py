@@ -143,9 +143,9 @@ def run(source:Path,graphics:Path):
     sdr=once(sdr,'if(!s->display13FramebufferRequested || !s->display13BootReady || !fb || !timing ||',
       'if(!s->yogaHDMI4K60Enabled || !s->display13FramebufferRequested || !s->display13BootReady || !fb || !timing ||',
       "SDR gate")
-    orig=once(orig,'void XE::wrapTGLModeTiming(void *controller,void *fb,void *timing) {',
-      sdr+'\nvoid XE::wrapTGLModeTiming(void *controller,void *fb,void *timing) {',
-      "native mode copy helper")
+    orig=once(orig,'uint32_t XE::tglPanelDepthPort(',
+      sdr+'\nuint32_t XE::tglPanelDepthPort(',
+      "HDMI SDR helper outside upstream panel fixture range")
     orig=replace_in_method(orig,
       'void XE::wrapTGLModeTiming(void *controller,void *fb,void *timing) {',
       'FunctionCast(wrapTGLModeTiming,callbackXE->orgTGLModeTiming)(controller,fb,timing);',
