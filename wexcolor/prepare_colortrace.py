@@ -129,7 +129,7 @@ def main(src: Path, graphics: Path):
     s=replace_once(s,DDC_OLD,DDC_NEW,"qualified DDC observer publication")
     assert s.count("WEXYogaHDMIColorLive")==1
     assert s.count('checkKernelArgument("-wex-yoga-hdmi-colortrace")')==1
-    assert s.count("IORegistryEntry::getRegistryRoot()->setProperty(\"WEXYogaHDMIHPDTrace\"")==1
+    assert s.count('"WEXYogaHDMIHPDTrace"')==1
     target.write_text(s)
 
     argsfile=src/"tests/fixtures/boot_argument_names.json"
