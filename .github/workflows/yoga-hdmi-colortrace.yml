@@ -75,7 +75,7 @@ jobs:
           cp wexcolor/decode_color.py dist/decode_color.py
           cp Source/build/RELEASE/build-manifest.json dist/
           (cd dist && shasum -a 256 WhateverXe*.zip > SHA256SUMS)
-          unzip -t dist/WhateverXe_0.8.3_WMONLY_FirstHDMIHotplug_TEST.zip
+          unzip -t dist/WhateverXe_0.8.3_WMONLY_HDMIColorTrace_READONLY_TEST.zip
       - uses: actions/upload-artifact@v4
         with:
           name: WhateverXe-0.8.3-WMONLY-HDMI-ColorTrace-READONLY-TEST
