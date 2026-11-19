@@ -16,7 +16,7 @@ publishes \`WEXYogaHDMIColorLive\` as a lazy OSData serializer.
 
 When \`ioreg -p IOService -l -w0\` requests the property, the callback:
 
-1. Checks the existing Display13 owner/map and locks its existing display
+1. Checks the existing Display13 owner/map and attempts to lock its existing display
    state mutex; does not install another display hook.
 2. Reads display power-well status 0x45404 first. Reads registers only for
    pipes whose native power well is on.
@@ -25,7 +25,7 @@ When \`ioreg -p IOService -l -w0\` requests the property, the callback:
 4. Only on a proven HDMI B pipe, reads VIDEO_DIP_CTL, plus GCP if enabled
    and AVI data if AVI enabled.
 5. Rechecks display power status; marks the snapshot invalid if it changed.
-6. Unlocks the mutex and serializes a 248-byte record.
+6. Unlocks the mutex and serializes a 236-byte record.
 
 Never writes a hardware register; never edits EDID/CSC/gamma, HPD, HDR,
 display timings, link modes, source pixel format, or macOS display settings.
@@ -36,7 +36,7 @@ Do not spam repeated queries or run the dump during hotplug/unplug/sleep.
 
 ## Schema: \`WEXYogaHDMIColorLive\`
 
-62 little-endian uint32 words:
+59 little-endian uint32 words:
 
 - Header [0..7]: version=1, status (0 not ready, 1 valid, 2 power changed),
   PW_CTL before, PW_CTL after, EISA vendor, product ID, native HDMI-B pipe
