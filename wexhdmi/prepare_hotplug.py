@@ -121,8 +121,21 @@ static bool wexYogaHDMITraceSerializer(void *,void *,OSSerialize *serializer) {
                 }
             }
         }'''
+    # The two upstream synthetic port fixtures extract this single method
+    # without the actual IORegistry/boot-arg environment. They test the native
+    # original port-state path; a separate pure C++ fixture tests this opt-in.
+    addition="\n#ifndef WEX_YOGA_HPD_PORT_FIXTURE" + addition + "\n#endif"
     s=replace(s,marker,marker+addition,"first native HDMI B port probe")
     cppfile.write_text(s)
+    for testpath,anchor in (
+        ("tests/display13_offline.py","['clang++','-std=c++17'"),
+        ("tests/dsi_port_adapter.py","['clang++','-std=c++17'")
+    ):
+        p=src/testpath
+        t=p.read_text()
+        t=replace(t,anchor,"['clang++','-DWEX_YOGA_HPD_PORT_FIXTURE=1','-std=c++17'",
+                  "isolated upstream port fixture")
+        p.write_text(t)
     h=src/"WhateverXe/kern_yoga_hdmi_first_hpd.hpp"
     h.write_text((root/"wexhdmi/kern_yoga_hdmi_first_hpd.hpp").read_text())
     argsfile=src/"tests/fixtures/boot_argument_names.json"
@@ -134,7 +147,8 @@ static bool wexYogaHDMITraceSerializer(void *,void *,OSSerialize *serializer) {
     changed=set(subprocess.check_output(["git","-C",str(src),"diff","--name-only"],text=True).splitlines())
     expected={"WhateverXe/kern_alderlake_n.hpp","WhateverXe/kern_xe.cpp",
       "WhateverXe/kern_xe.hpp","WhateverXe/kern_display13_wm.hpp",
-      "tests/fixtures/boot_argument_names.json"}
+      "tests/fixtures/boot_argument_names.json",
+      "tests/display13_offline.py","tests/dsi_port_adapter.py"}
     if changed!=expected:raise RuntimeError("unexpected source diff "+str(changed))
     assert h.is_file() and s.count('"WEXYogaHDMIHPDTrace"')==1
     subprocess.run(["git","-C",str(src),"diff","--check"],check=True)
