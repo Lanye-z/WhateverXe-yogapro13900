@@ -56,6 +56,9 @@ jobs:
               "wex4k60/reference/$unit.cpp" -o "/tmp/$unit"
             "/tmp/$unit"
           done
+      - name: Verify original panel-depth fixture before full regression
+        working-directory: Source
+        run: python3 tests/tgl_panel_depth_route.py
       - name: Official 0.8.3 test suite
         working-directory: Source
         run: python3 tools/test.py
