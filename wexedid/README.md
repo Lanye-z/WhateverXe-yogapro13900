@@ -1,77 +1,64 @@
-# Yoga 82Y7 A7A0 HDMI-B U27P10: native EDID capability A/B
+# U27P10 HDMI 伪色修复：Deep Color 能力限制
 
-**Experimental test Kext. Not a verified fix. Always keep a bootable recovery EFI.**
-The pinned WhateverXe 0.8.3 + Graphics 0.4.4 source retains existing eDP120
-WM_ONLY, HDMI HPD trace, ColorTrace register reader and native color-mode audit.
-No changes to main or any existing installed EFI.
+## 实机结果（2026-11-19）
 
-## Evidence and exact planned EDID deltas
+**本机修复成功。** Lenovo Yoga Pro 14s IRH8（82Y7，Intel A7A0）连接 AOC U27P10（05E3:2710）到机身 HDMI DDI B，原 4K30 伪色状态下开启 `-wex-yoga-hdmi-edid-deep8`，画面恢复正常。采集结果证明物理输出由 **YCbCr 4:4:4 / 10 bpc** 改为 **YCbCr 4:4:4 / 8 bpc**，并未切换 RGB。
 
-Two current U27P10 captures (2560x1440@59 and 3840x2160@30) both show
-10bpc / YCbCr444 on physical DDI B, Pipe B, GCP not enabled.
-The native setColorMode call reports mode=0x100 and depth=0.
-The old bpc8-test/rgb8-test mode-argument methods are thus inapplicable.
-CTA base in the actual live capture, not the older e13 test fixture:
-extension header 02 03 40 F1, HDMI VSDB DC flags 38,
-HDMI Forum 4:2:0 DC flags 03, 4:2:0 Capability Map 00 0C.
-This branch uses normal EDID DDC block #2, not an all-bytes EDID override.
+| 关键字段 | 伪色状态 | 正常状态 |
+| --- | --- | --- |
+| `TRANS_DDI_FUNC_CTL` | `0x90130200` | `0x90030200` |
+| `PIPE_MISC` | `0x01800830` | `0x01800810` |
+| AVI | YCbCr 4:4:4 | YCbCr 4:4:4 |
+| GCP | 未启用 | 未启用 |
+| 用户目视结果 | 伪色 | 正常 |
 
-Experiment A: -wex-yoga-hdmi-edid-deep8
-- Retain CTA YCbCr444/422 advertisement and 4:2:0 map.
-- Clear HDMI VSDB DC_48, DC_36, DC_30, DC_Y444.
-- Clear HDMI Forum YCbCr420 deep-colour bits 0..2.
-- Recalculate the extension checksum.
-- Never changes resolution timings, HDMI address or 600MHz max TMDS.
-- On the observed sample, only offsets 31, 46, 127 change.
+实验日志显示 `WEXYogaHDMIEDIDABApplied = Yes`，CTA 能力变化符合预期，并且 EDID 校验和有效。此结果验证的是**本机 U27P10 的 4K30 颜色问题**，而非 4K60 或热插拔的完整修复。
 
-Experiment B: -wex-yoga-hdmi-edid-rgb8
-- Includes Experiment A changes.
-- Clears CTA feature flags for YCbCr444 and YCbCr422 (F1 -> C1).
-- Clears the YCbCr420 capability map bytes, preserving block length.
-- Rejects a 420-only video block when encountered.
-- On the observed sample, only offsets 3, 31, 46, 63, 127 change.
+## 实现机制
 
-These are ALTERNATIVES: never enable both. Neither is on by default.
-Existing -wex-yoga-hdmi-mode-audit and -wex-yoga-hdmi-colortrace remain usable.
-Unknown EDID format, checksum error, duplicate/missing expected vendor data
-blocks or unqualified physical port cause no modification.
-The original EDID base block (including serial) is never rewritten or
-published by this experiment. The internal eDP and other monitors are excluded.
+补丁在原生 Display13 HDMI DDC 返回路径对**扩展块**进行严格条件限定，只有设备、端口、EDID 结构和校验均满足时才按所选实验调整能力字节。保持 EDID 基本块、序列号、详细时序、HDMI 物理地址和最大 TMDS 能力不变。修改后重新计算 CTA 扩展块校验和，由 macOS 原生显示驱动重新选择实际颜色模式，而不是点亮后强写 MMIO 寄存器。
 
-## Startup arguments
+### 方案 A：限制 Deep Color（已实机成功）
 
-First A (replace other color-test flag; preserve all your remaining bootargs):
--wex-yoga-edp120-admit -wex-yoga-edp120-wm
--wex-yoga-hdmi-colortrace -wex-yoga-hdmi-mode-audit
--wex-yoga-hdmi-edid-deep8
+启动参数：`-wex-yoga-hdmi-edid-deep8`
 
-Only if A does not give a stable and valid picture, in a separate reboot:
-remove -wex-yoga-hdmi-edid-deep8, add -wex-yoga-hdmi-edid-rgb8.
+| CTA 数据 | 原始 | 修改后 |
+| --- | --- | --- |
+| CTA 色彩能力 | `0xF1` | `0xF1` |
+| HDMI VSDB Deep Color 标志 | `0x38` | `0x00` |
+| HDMI Forum 的 4:2:0 Deep Color 标志 | `0x03` | `0x00` |
+| 4:2:0 能力映射 | `0x0C` | `0x0C` |
 
-Do not enable legacy -wex-yoga-hdmi-bpc8-test or
--wex-yoga-hdmi-rgb8-test; this branch does not depend on them.
-Do not enable HDMI600, first-HPD event rewriting or EDID OS overrides.
-Connect U27P10 to native laptop HDMI before cold boot; do not use TB4 dock.
-Start at a known working QHD/4K30 mode; 4K60 needs separate TMDS/SCDC work.
+在已识别的 CTA 布局下，仅修改扩展块偏移 **31、46、127**（含校验和）；不缩减视频格式列表，不删除 4K 时序。
 
-## Verify after every boot
+### 方案 B：进一步限制 YCbCr（备选，未实机验证）
 
-- nvram boot-args: confirm exactly one new test flag.
-- ioreg -p IOService -l -w0 | grep -E WEXYogaHDMIEDIDAB
-- Run bash collect_edid_ab.sh with decode_edid_ab.py, decode_color.py,
-  decode_modes.py placed together in the same directory.
-- Upload Yoga_HDMI_EDID_AB_*.zip. Include a note if colors improved,
-  blacked out or continued to be magenta.
-- Examine HDMI pipe bpc, YUV flag, AVI and GCP, not just EDID echo.
-- EDIDAB Applied=Yes means the donor received modified EDID;
-  it does NOT prove that native color mode or physical HDMI output changed.
-- If no Applied=Yes, treat it as NO OP, not as proof RGB8 does not work.
-- Any boot loop, display hang or unstable output: restore known-good EFI.
+启动参数：`-wex-yoga-hdmi-edid-rgb8`
 
-## Scope and risk
+在 A 的基础上将 CTA 头部 `0xF1` 改为 `0xC1`，并清除对应的 4:2:0 能力映射。已识别布局只改扩展块偏移 **3、31、46、63、127**（含校验和）。发现不支持的 4:2:0-only 数据块时会拒绝此操作。
 
-This is a limited experiment for one physical A7A0 / native DDI B / U27P10
-and one observed CTA layout. It does not patch the macOS display driver,
-force Display13 MMIO registers, or guarantee 4K60/HPD behavior.
-A successful C++ compiler, x86_64 architecture and CI test are prerequisites,
-not proof of field reliability.
+**A 已修复现有伪色，因此没有必要启动 B。不能同时开启 A 和 B。**
+
+## 编译及启用
+
+- 源码生成器：`prepare_edid_ab.py`；校验代码：`kern_yoga_hdmi_edid_ab.hpp`；单元测试：`test_edid_ab.cpp`。
+- 继承 WhateverXe 0.8.3 / WhateverXe Graphics 0.4.4 的 WM_ONLY/V2、HPD 追踪、ColorTrace 和原生颜色模式审计。
+- [Intel 原生回归、RELEASE 编译及 ZIP 校验通过](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44494354268)。
+- 保留原有可启动 EFI，在独立测试 EFI 替换 `WhateverXe.kext`。确认 `nvram boot-args` 包含 `-wex-yoga-hdmi-edid-deep8`，不要添加过时的 `bpc8-test` / `rgb8-test`。
+- 建议开启原有 `-wex-yoga-hdmi-colortrace` 和 `-wex-yoga-hdmi-mode-audit` 以便核查。
+
+```bash
+nvram boot-args
+ioreg -p IOService -l -w0 | grep -E 'WEXYogaHDMIEDIDAB(Last|Applied)'
+bash collect_edid_ab.sh
+```
+
+采集脚本旁应有 `decode_edid_ab.py`、`decode_color.py`、`decode_modes.py`，输出为桌面的 `Yoga_HDMI_EDID_AB_*.zip`。
+
+## 解释与边界
+
+`WEXYogaHDMIEDIDABApplied=Yes` 仅代表能力字节已修改；本次修复成立是因为**同时**看到了用户确认画面正常以及 GPU 物理寄存器由 10 bpc 变为 8 bpc。
+
+`setColorMode` 的实测参数为 `mode=0x100, depth=0`，旧的直接替换数值的方案并不适合本机。最可能的兼容问题落在 HDMI 10-bit Deep Color 传输或信令链路，但尚未通过 HDMI 协议分析仪确定具体硬件故障环节。
+
+4K60 TMDS/SCDC、首次点亮、热插拔、长期稳定性仍须独立验证。本补丁不能作为所有 A7A0 显示器的通用修复保证。
