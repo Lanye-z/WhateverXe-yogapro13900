@@ -1,51 +1,63 @@
-# Yoga Pro 14s IRH8 A7A0 — first HDMI after panel-only boot
+# Yoga Pro 14s IRH8 A7A0：开机后首次 HDMI 热插拔诊断
 
-**Status: EXPERIMENTAL one-shot *hypothesis*, not a verified HDMI hotplug repair.**
+**状态：本模块是 HPD 中断路径的诊断与有限次数事件转换实验，不是已实机确认的热插拔修复。**
 
-On the physical Yoga, HDMI DDI B works when attached **before boot** and subsequent removal/reinsertion works. When the Yoga boots with only eDP, first HDMI insertion does **not** attach. Existing WM_ONLY 0.8.3 telemetry shows both the PCH HDMI IRQ bits and DDI HPD detector enabled even in the failing boot; this rules out blindly enabling HPD masks again.
+这部分与 [U27P10 伪色已修复的 EDID Deep8 方案](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-yoga-edid-ab) 是两个独立问题：**颜色修复已经在 4K30 上实机成功，不代表首次连接失败或 4K60 黑屏已解决。**
 
-This code is **not** the E1.0 transplant (that multi-output implementation is already in official 0.8.3). It starts from the **same exact source patches as the successful WM_ONLY/V2** and does not add HDMI600, RGB8, USB-C, Thunderbolt/DP, DSC, GateRetry or eDP-keep.
+## 一、原始故障现象
 
-## Diagnostic and limited candidate fix
+在 Lenovo Yoga Pro 14s IRH8（82Y7 / A7A0）中，机身 HDMI DDI B 若开机前就接有显示器，可以进入系统并点亮；若仅以内屏启动，开机后第一次插入 HDMI 有时无法发现/点亮外屏。开机前接入的设备在后续拔插时有过正常工作的记录，但行为受具体显示器、模式和测试条件影响。
 
-The exact native Display13 `collect()` adapter translates a DDI B **long HPD** pulse into native hotplug bit **2**, and a **short HPD** into bit **3**. A short pulse after a panel-only boot might not cause the native stack to treat a previously absent monitor as a new sink. This is *unproven* until the actual IRQ is captured.
+此前 WM_ONLY / 0.8.3 日志已经显示，故障状态下 PCH HDMI IRQ 相关位和 DDI HPD 检测器仍处于启用状态，因此不应简单地“再打开一次 HPD mask”作为修复。
 
-The optional flags are:
-- `-wex-yoga-hdmi-hpdtrace`: **read-only**, publishes a live lazy `WEXYogaHDMIHPDTrace` OSData snapshot. Safe for first diagnostic run. No event rewriting.
-- `-wex-yoga-hdmi-first-hpd`: **one-shot test workaround**. Only when this same A7A0 WM_ONLY device selects **HDMI DDI B**, the **very first native HDMI-B probe returned 0**, and a **short B HPD event actually reaches the Display13 IRQ handler with no B long pulse**, change that *one* forwarded native short B event into a long B event. No registers, EDID data, timing or external-link clocks are changed; native driver still tests and accepts/rejects the real sink. Only one attempt per boot. If no event arrives, the fix does **nothing**.
+## 二、已加入的两个实验开关
 
-**Do not test the second flag until the first flag shows a B-short IRQ.** If the result is zero, the actual failure is earlier (physical HPD delivery/IRQ or power) or later (framebuffer admission), and this hypothesis must not be presented as a solution.
+| 参数 | 作用 | 安全性及状态 |
+| --- | --- | --- |
+| `-wex-yoga-hdmi-hpdtrace` | 发布只读的 `WEXYogaHDMIHPDTrace`，用于分析 HPD 探测与 IRQ 计数 | 诊断开关 |
+| `-wex-yoga-hdmi-first-hpd` | 仅在严格条件满足时，把首次 native HDMI-B 短 HPD 事件转换为一次长 HPD 事件 | **实验性候选修复，尚未证实有效** |
 
-### IORegistry record schema (20 little-endian uint32)
+原生 Display13 的 `collect()` 路径中，DDI B 长脉冲对应 native bit 2，短脉冲对应 bit 3。提出的假设是：仅内屏启动后出现的是短 HPD，原生栈可能未将其按新增显示器处理。
 
-`WEXYogaHDMIHPDTrace = [schema,firstB,lastB,probesB,irqCalls,deCalls,pchMasterHits,bLongHits,bShortHits,promotions,lastPCH,lastDDI,lastEvents,forwardedEvents,status,irqEnabled,irqFaulted,activePipes,admittedPipes,observations]`.
+`-wex-yoga-hdmi-first-hpd` 仅在设备限定、首次端口探测为断开、实际收到短 HPD 且没有长 HPD 等条件全部成立时转换**一次**事件；不会伪造不存在的中断，不会改写 EDID、显存寄存器或 HDMI 时钟。条件不成立时没有任何效果。
 
-- `firstB=0`: initial HDMI B was disconnected. `firstB=2`: already connected.
-- `bShortHits>0` and `bLongHits=0`: specifically tests the short-only pulse hypothesis.
-- `pchMasterHits=0` after late cable insertion: no PCH IRQ observed.
-- `bLongHits>0` but no screen: connection/FB path failure beyond pulse mapping.
-- `promotions=1`: workaround forwarded once, *not* proof of physical success.
+**没有捕获到短 HPD 事件之前，不应将该开关称为有效修复。**
 
-### Safe staged trial
+## 三、诊断字段
 
-Preserve your original successfully rebooting WM_ONLY EFI. **Never overwrite it.** Make an independently bootable clone and replace only `EFI/OC/Kexts/WhateverXe.kext` from the CI artifact; keep signed Graphics 0.4.4, all other Kexts and hardware configuration unchanged.
+`WEXYogaHDMIHPDTrace` 为 20 个小端序 `uint32`：
 
-1. **First trial: read-only only.** Add `-wex-yoga-hdmi-hpdtrace` alongside the existing `-wex-yoga-edp120-admit -wex-yoga-edp120-wm`. Do NOT add `-wex-yoga-hdmi-first-hpd` yet.
-2. Disconnect HDMI *before* cold boot, and do not connect the Thunderbolt dock. Boot with eDP only. Record the initial trace; then connect native HDMI at **1080p60**, without reboot. Record the second trace and `system_profiler SPDisplaysDataType`.
-3. Only if `bShortHits>0, bLongHits=0`, test an independent clone with `-wex-yoga-hdmi-first-hpd` **instead of** the audit-only flag. Confirm `promotions=1` AND actual display listing. Without these both, do not call it fixed.
-4. If the external monitor fails, goes black, system hangs or WindowServer stops responding, use untouched WM_ONLY recovery EFI.
+```text
+[schema, firstB, lastB, probesB, irqCalls, deCalls,
+ pchMasterHits, bLongHits, bShortHits, promotions,
+ lastPCH, lastDDI, lastEvents, forwardedEvents, status,
+ irqEnabled, irqFaulted, activePipes, admittedPipes, observations]
+```
 
-**Important:** `WEXYogaHDMIHPDTrace` serializes the latest atomic counters on read. The callback performs no IORegistry writes in an interrupt and no live MMIO reads in its serializer. The fix does not poll, invent events or perform port reset. Expect no change if IRQ delivery is missing.
+- `firstB=0`：首次探测 HDMI B 为断开；`firstB=2`：首次已连接。
+- `bShortHits>0` 且 `bLongHits=0`：才支持短脉冲假设。
+- 插入外屏后 `pchMasterHits=0`：可能根本没有观察到 PCH IRQ，需要向中断/供电上游排查。
+- `bLongHits>0` 但屏幕未出现：说明故障可能在后续探测或 framebuffer 准入过程。
+- `promotions=1`：只代表执行过一次事件转换，**不代表屏幕确实点亮**。
 
-## Quick collection
+读取属性时序列化原子计数，不在中断处理程序中写 IORegistry，不通过采样器读取 MMIO，也不会自动重置端口。
 
-After each stage run:
+## 四、谨慎的验证顺序
+
+1. 保留已知可以启动的 EFI，复制独立测试 EFI；只替换该测试 EFI 的 `WhateverXe.kext`，保持 WhateverXe Graphics 0.4.4 不变。
+2. 初次仅加入 `-wex-yoga-hdmi-hpdtrace`，保留 `-wex-yoga-edp120-admit -wex-yoga-edp120-wm`。开机前不接 HDMI，先以 eDP 单屏启动并记录基线。
+3. 开机后接入机身 HDMI，分别采集插入前后的属性，比较中断计数变化。
+4. 仅当确实观察到 B-short 而无 B-long，并且保留回退手段时，才考虑在另一份独立测试 EFI 验证一次性转换开关；必须同时确认 `promotions=1` 和显示器实际出现，才能判定有效。
 
 ```bash
-ioreg -lw0 -p IOService | grep -E 'WEXYogaHDMIHPDTrace|N97FBIRQEnableCheck|N97FBPortProbe(First2|Last)'
+ioreg -p IOService -l -w0 | grep -E 'WEXYogaHDMIHPDTrace|N97FBIRQEnableCheck|N97FBPortProbe(First2|Last)'
 system_profiler SPDisplaysDataType
 ```
 
-Record the first and second outputs separately. The byte array is a little-endian `uint32_t[20]`. The exact N97/HPD trace is sensitive to prior hotplug attempts in that same boot; compare counters as deltas.
+记录前后输出并比较计数**增量**，不要只看单次的绝对计数。测试期间若出现黑屏、WindowServer 无响应或内屏不亮，立即回退到原 EFI。
 
-CI runs the exact pinned WEX 0.8.3 + Graphics 0.4.4 V2 builder, pure C++ edge-case assertions, upstream regression tests and RELEASE compilation. **Compile success never proves the one-shot fix works on the machine.**
+## 五、编译状态与问题边界
+
+[该 HPD 实验构建记录](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44444094099) 包含官方回归、辅助测试、RELEASE 编译及打包。**构建通过不等于 HPD 方案获得实机验证。**
+
+此实验未实现 4K60 的 HDMI TMDS 高速时钟与 SCDC 完整协商，也不是 GPU 颜色修复的必要组件。后续 Deep8 修复只作用于目标显示器的 EDID Deep Color 声明，未通过本模块的短/长 HPD 转换来解决伪色。
