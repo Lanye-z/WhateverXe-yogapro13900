@@ -105,6 +105,14 @@ def run(source:Path,graphics:Path):
        'if(!s->display13FramebufferRequested || !s->display13BootReady || !s->display13HDMII2CRequest ||',
        'if(!s->yogaHDMI2LinkEnabled || !s->display13FramebufferRequested || !s->display13BootReady || !s->display13HDMII2CRequest ||',
        "SCDC opt-in ownership")
+    methods=once(methods,
+       'if(complete)\n        control=(control&~0xD1U)|result.sourceFlags;',
+       'if(complete) {\n'
+       '        control=(control&~0xD1U)|result.sourceFlags;\n'
+       '        __atomic_store_n(&callbackXE->yogaHDMI2HighActive,\n'
+       '            t->pixelClock>340000000ULL?1U:0U,__ATOMIC_RELEASE);\n'
+       '    }',
+       "track only completed SCDC transitions")
     orig=once(orig,'uint32_t XE::wrapAlderLakeNPortDDC(OSObject *port,uint32_t block,uint8_t *data,bool force) {',
        methods+'\nuint32_t XE::wrapAlderLakeNPortDDC(OSObject *port,uint32_t block,uint8_t *data,bool force) {',
        "runtime methods before DDC")
@@ -132,21 +140,46 @@ def run(source:Path,graphics:Path):
       'cachePanelDepth(port,block,data,result);\n'+cache,
       "generation-safe EDID caching")
 
-    # The SCDC sink handshake is performed BEFORE the donor enables TMDS.
-    # If the sink fails to acknowledge the required high-rate settings, do
-    # not assert high-rate source flags or run a mismatched HDMI link.
+    # Reuse existing LightUpTMDS observation hook. Never install second hook.
+    # Only high-rate modes negotiate SCDC; low-rate recovery is fail-open.
     light='uint32_t XE::wrapTGLLightUpTMDS(void *controller, void *fb, void *path, const void *timing) {'
     a,b=method(orig,light)
     frag=orig[a:b]
     needle='const auto r = FunctionCast(wrapTGLLightUpTMDS, callbackXE->orgTGLLightUpTMDS)(controller, fb, path, timing);'
     frag=once(frag,needle,
-      'if(callbackXE->yogaHDMI2LinkEnabled && !prepareDisplay13HDMISCDC(controller,fb,path,timing))\n'
-      '        return kIOReturnNotReady;\n\t'+needle,
-      "SCDC before native TMDS lightup")
+      """const auto *hdmiTiming=static_cast<const IODetailedTimingInformationV2 *>(timing);
+    const uint64_t hdmiClock=hdmiTiming ? hdmiTiming->pixelClock : 0;
+    const bool hdmiHigh=callbackXE->yogaHDMI2LinkEnabled && hdmiClock>340000000ULL;
+    // Do not touch 4K30, eDP, or unrelated Display13 mode switches.
+    if(hdmiHigh && !prepareDisplay13HDMISCDC(controller,fb,path,timing)) {
+        IORegistryEntry::getRegistryRoot()->setProperty("WEXYogaHDMI2HighRefused",true);
+        return kIOReturnNotReady;
+    }
+    const bool hdmiRecover=callbackXE->yogaHDMI2LinkEnabled && !hdmiHigh &&
+        hdmiClock && hdmiClock<=340000000ULL &&
+        __atomic_load_n(&callbackXE->yogaHDMI2HighActive,__ATOMIC_ACQUIRE)!=0;
+    if(hdmiRecover) {
+        const bool reset=prepareDisplay13HDMISCDC(controller,fb,path,timing);
+        IORegistryEntry::getRegistryRoot()->setProperty("WEXYogaHDMI2LowReset",reset);
+        // SCDC failure must never prevent recovery of ordinary HDMI 4K30.
+    }
+    """+needle,
+      "strict high-rate only SCDC handshake, best-effort low-mode fallback")
+    frag=once(frag,
+      'tglObservePath(nullptr, path, 7, true, r, 0, caller);',
+      """if(hdmiHigh && r) {
+        // Rejected by native modeset: undo the high-speed sink setting when
+        // the same HDMI owner still holds the DDC/Display13 lock.
+        auto low=*hdmiTiming;
+        low.pixelClock=297000000ULL;
+        const bool reset=prepareDisplay13HDMISCDC(controller,fb,path,&low);
+        IORegistryEntry::getRegistryRoot()->setProperty("WEXYogaHDMI2FailedHighReset",reset);
+    }
+    tglObservePath(nullptr, path, 7, true, r, 0, caller);""",
+      "rollback high SCDC after native LightUpTMDS error")
     orig=orig[:a]+frag+orig[b:]
 
-    # Do not block the normal Display13 output hooks if the optional native
-    # I2C symbol isn't present. The opt-in high-rate path then refuses.
+    # Resolve native I2C ABI without installing any additional framebuffer hooks.
     i2c='''    if(yogaHDMI2LinkEnabled) {
         const char *name="__ZN31AppleIntelFramebufferController14hwDoI2CRequestEjjjP14IOI2CBusTimingP12IOI2CRequest";
         auto fn=patcher.solveSymbol<mach_vm_address_t>(index,name,address,size);
