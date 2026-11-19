@@ -221,7 +221,7 @@ def run(source:Path,graphics:Path):
     panel_test=source/"tests/tgl_panel_depth_route.py"
     panel=panel_test.read_text()
     panel=once(panel," bool display13FramebufferRequested=false;",
-      " bool display13FramebufferRequested=false; bool yogaHDMI4K60Enabled=false;\\n"
+      " bool display13FramebufferRequested=false; bool yogaHDMI4K60Enabled=false;\n"
       " static void configureDisplay13HDMISDR(void*,void*){};",
       "synthetic panel fixture's no-op HDMI gate")
     panel_test.write_text(panel)
