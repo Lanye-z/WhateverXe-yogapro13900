@@ -2,6 +2,10 @@
 
 **Status: EXPERIMENTAL one-shot *hypothesis*, not a verified HDMI hotplug repair.**
 
+**CI (2026-11-19): PASS — 219/219 official regressions, standalone HPD unit assertions, RELEASE compilation, compat check and packaging.** [Successful Actions run](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44444094099) | [Download independent test Kext (artifact 14492553208)](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44444094099/artifacts/14492553208). **Not yet physical-device verified; do not call fixed.**
+
+
+
 On the physical Yoga, HDMI DDI B works when attached **before boot** and subsequent removal/reinsertion works. When the Yoga boots with only eDP, first HDMI insertion does **not** attach. Existing WM_ONLY 0.8.3 telemetry shows both the PCH HDMI IRQ bits and DDI HPD detector enabled even in the failing boot; this rules out blindly enabling HPD masks again.
 
 This code is **not** the E1.0 transplant (that multi-output implementation is already in official 0.8.3). It starts from the **same exact source patches as the successful WM_ONLY/V2** and does not add HDMI600, RGB8, USB-C, Thunderbolt/DP, DSC, GateRetry or eDP-keep.
