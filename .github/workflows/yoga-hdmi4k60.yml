@@ -83,6 +83,7 @@ jobs:
           python3 tools/build.py --release --sdk "$GITHUB_WORKSPACE/MacKernelSDK" --output build/RELEASE
           python3 tools/check_compat_version.py build/RELEASE
       - name: Package Kext-only test artifact
+        if: false # 禁止发布已报告启用后导致 22MB/显示异常的实验 Kext
         shell: bash
         run: |
           set -euo pipefail
@@ -98,6 +99,7 @@ jobs:
           (cd dist && shasum -a 256 WhateverXe*.zip > SHA256SUMS)
           unzip -t dist/WhateverXe_0.8.3_WMONLY_HDMI4K60_SCDC_TEST.zip
       - uses: actions/upload-artifact@v4
+        if: false # 暂停分发，待修复并重新评审后再恢复
         with:
           name: WhateverXe-0.8.3-WMONLY-HDMI4K60-SCDC-EXPERIMENT
           path: dist/*
