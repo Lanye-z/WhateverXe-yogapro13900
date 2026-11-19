@@ -16,7 +16,7 @@ from importlib.util import spec_from_file_location, module_from_spec
 
 ROOT=Path(__file__).resolve().parents[1]
 REF=ROOT/"wex4k60/reference"
-BASE=ROOT/"wexhdmi/prepare_hotplug.py"
+BASE=ROOT/"wexedid/prepare_edid_ab.py"
 
 def once(s:str, old:str, new:str, label:str)->str:
     count=s.count(old)
@@ -46,14 +46,14 @@ def replace_in_method(s,name,old,new,label):
     return s[:a]+part+s[b:]
 
 def run(source:Path,graphics:Path):
-    spec=spec_from_file_location("yoga_first_hpd",BASE)
+    spec=spec_from_file_location("yoga_deep8_verified",BASE)
     mod=module_from_spec(spec);spec.loader.exec_module(mod)
-    mod.run(source,graphics)
+    mod.main(source,graphics)
     cpp=source/"WhateverXe/kern_xe.cpp"
     hpp=source/"WhateverXe/kern_xe.hpp"
     orig=cpp.read_text();hdr=hpp.read_text()
 
-    # Use read-only capability parsing and an SCDC state machine from a tested
+    # Preserve the proven U27P10 Deep8 EDID intervention and its color trace.\n    # Use read-only capability parsing and an SCDC state machine from a tested
     # A7A0 notebook, not its power-control or port-selection patches.
     for filename in ("kern_display13_hdmi_caps.hpp","kern_display13_hdmi_scdc.hpp"):
         target=source/"WhateverXe"/filename
