@@ -1,95 +1,68 @@
-# A7A0 HDMI-B U27P10: read-only color format register snapshot
+# A7A0 HDMI-B 实际色彩寄存器采集（ColorTrace）
 
-**EXPERIMENTAL TEST KEXT, not a color fix. No physical-machine validation yet.**
-Only build from a separate test EFI; preserve your existing bootable WM_ONLY/HPD configuration.
+**状态：只读诊断功能已在 Lenovo Yoga Pro 14s IRH8（82Y7）实机验证有效。此模块本身不修复伪色。**
 
-## What this adds
+本模块基于 WhateverXe 0.8.3 + WhateverXe Graphics 0.4.4，继承内屏 120Hz 的 WM_ONLY/V2 和 HDMI HPD 诊断。仅在启用 `-wex-yoga-hdmi-colortrace` 且满足 A7A0 / 机身 HDMI DDI B 范围后，向 IORegistry 发布 `WEXYogaHDMIColorLive`。
 
-Starting from the **same pinned WhateverXe 0.8.3 / Graphics 0.4.4** build as
-the existing **first-HDMI-hotplug** experimental branch, reuses its exact
-WM_ONLY/V2 eDP120 source and HPD instrumentation. The one-shot HPD event
-rewrite is still OFF by default and MUST stay OFF in this test.
+## 一、这次排查实际证明了什么
 
-Adds one opt-in **-wex-yoga-hdmi-colortrace**. After a successful native DDC
-read on the physical Lenovo A7A0, selected native HDMI DDI B, the driver
-publishes \`WEXYogaHDMIColorLive\` as a lazy OSData serializer.
+| 条目 | 伪色（修复前） | 正常（后续 EDID Deep8 修复） |
+| --- | --- | --- |
+| 显示器 / 端口 | AOC U27P10、DDI B、Pipe 1 | 相同 |
+| 实测对照模式 | 3840×2160 @ 30Hz | 3840×2160 @ 30Hz |
+| `TRANS_DDI_FUNC_CTL` | `0x90130200` | `0x90030200` |
+| `PIPE_MISC` | `0x01800830` | `0x01800810` |
+| HDMI 输出色深 | 10 bpc | 8 bpc |
+| 输出编码 | YCbCr 4:4:4 | YCbCr 4:4:4 |
+| AVI InfoFrame | YCbCr 4:4:4 | YCbCr 4:4:4 |
+| GCP 使能 | 关闭 | 关闭 |
+| 实际画面 | 伪色 | 正常 |
 
-When \`ioreg -p IOService -l -w0\` requests the property, the callback:
+**结论：** 这台机器与 U27P10 的问题更接近 HDMI 10-bit Deep Color 兼容性，而不是“只要 YCbCr 就伪色”。后续 [EDID A/B 实验](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-yoga-edid-ab) 通过 `-wex-yoga-hdmi-edid-deep8` 限制能力声明，使原生驱动选择 YCbCr 8 bpc 并恢复正常颜色。本只读分支不包含该修复开关。
 
-1. Checks the existing Display13 owner/map and attempts to lock its existing display
-   state mutex; does not install another display hook.
-2. Reads display power-well status 0x45404 first. Reads registers only for
-   pipes whose native power well is on.
-3. Checks each active TRANS_DDI_FUNC_CTL for native HDMI DDI B
-   (enable bit, physical port selector 2, TMDS mode 0 or 1).
-4. Only on a proven HDMI B pipe, reads VIDEO_DIP_CTL, plus GCP if enabled
-   and AVI data if AVI enabled.
-5. Rechecks display power status; marks the snapshot invalid if it changed.
-6. Unlocks the mutex and serializes a 236-byte record.
+## 二、原理及数据结构
 
-Never writes a hardware register; never edits EDID/CSC/gamma, HPD, HDR,
-display timings, link modes, source pixel format, or macOS display settings.
-In contrast to a purely passive write observer, this is a live **readback**,
-but it is still experimental: on-demand MMIO reads might be incompatible with
-unverified platform/power states. Only run the query after display is stable.
-Do not spam repeated queries or run the dump during hotplug/unplug/sleep.
+读取动作只有在 `ioreg` 查询属性时触发，不设周期采样任务：
 
-## Schema: \`WEXYogaHDMIColorLive\`
+1. 检查 Display13 驱动所有者、映射及电源锁，采用非阻塞锁，避免在模式切换期间强行读取。
+2. 检查 power well 状态，只读取已上电管线。
+3. 通过 `TRANS_DDI_FUNC_CTL` 区分真正使用 HDMI DDI B 的 Pipe。
+4. 根据 AVI/GCP 使能情况读取 `VIDEO_DIP_CTL`、InfoFrame 和相关寄存器。
+5. 再次检查电源状态是否变化，变化则标记快照失效。
+6. 以 236 字节 OSData 序列化原始寄存器快照。
 
-59 little-endian uint32 words:
+`WEXYogaHDMIColorLive` 包含 59 个小端序 `uint32`：
 
-- Header [0..7]: version=1, status (0 not ready, 1 valid, 2 power changed),
-  PW_CTL before, PW_CTL after, EISA vendor, product ID, native HDMI-B pipe
-  mask, powered pipe mask.
-- Three pipe records, 17 words each:
-  pipe index, powered, TRANS_DDI_FUNC_CTL, PIPE_MISC, PLANE_CTL, PIPECONF,
-  TRANS_DDI_FUNC_CTL2, VIDEO_DIP_CTL, GCP, 7 AVI InfoFrame DWORDs,
-  TRANS_MSA_MISC.
-- Unread registers are UINT32_MAX, **never** hardware zero.
-- A **valid** record is one with status 1, the expected HDMI-B pipe identified,
-  stable power, and the requested register values populated.
-- AVI/GCP payload only indicates register contents; it is **not** packet-level
-  proof of what a signal analyzer sees on the cable.
-- The macOS "Framebuffer Depth" line represents the framebuffer format, not
-  this physical link state.
+- 前 8 个字段：版本、数据有效性（0 未就绪、1 有效、2 读取期间电源变化）、前后电源状态、厂商 ID、产品 ID、HDMI B 管线掩码及已上电管线掩码。
+- 后面有 3 组、每组 17 个字段：Pipe 索引、上电状态、`TRANS_DDI_FUNC_CTL`、`PIPE_MISC`、`PLANE_CTL`、`PIPECONF`、`TRANS_DDI_FUNC_CTL2`、`VIDEO_DIP_CTL`、GCP、7 个 AVI 数据字段与 `TRANS_MSA_MISC`。
+- 无法读取的寄存器填 `UINT32_MAX`，**不等于硬件寄存器值为 0**。
 
-## Build and installation
+`TRANS_DDI_FUNC_CTL[22:20]` 与 `PIPE_MISC[7:5]` 用于判读输出色深；`PIPE_MISC[11]` 标识 YUV 输出；AVI 需检查使能与原始字节，不可仅凭 macOS 显示的 ARGB8888 帧缓冲格式判定物理链路色深。
 
-The GitHub Actions workflow \`.github/workflows/yoga-hdmi-colortrace.yml\`
-pins WhateverXe 0.8.3 f26a368, its Graphics 0.4.4 donor, MacKernelSDK and
-Lilu. It runs the HPD unit assertions, upstream tests, RELEASE compile and
-compatibility checking. Passing CI is **not** proof that reading registers
-is safe or that this fixes corruption.
+**限制：** 读取的是 GPU 寄存器，不是 HDMI 协议分析仪的线缆抓包。不能由 GCP 使能位单独证明全部线上信令正确与否。
 
-Do not overwrite daily EFI. Duplicate independently bootable EFI to a test
-EFI and replace **only** \`EFI/OC/Kexts/WhateverXe.kext\`. Keep Graphics 0.4.4
-unchanged and keep a recovery path. Do not enable \`-wex-yoga-hdmi-first-hpd\`,
-\`-wex-yoga-rgb8\` or \`-wex-yoga-hdmi600\` here.
+## 三、如何复现诊断
 
-Append \`-wex-yoga-hdmi-colortrace\` to the existing:
-\`-wex-yoga-edp120-admit -wex-yoga-edp120-wm -wex-yoga-hdmi-hpdtrace\`.
+使用独立测试 EFI，仅替换 `EFI/OC/Kexts/WhateverXe.kext`，保留 Graphics 0.4.4 及恢复方案。确认启动参数包括：
 
-Connect the U27P10 to **native HDMI before boot** (avoids the known
-late-first-insertion issue). Boot and verify Metal/inner display,
-the U27P10 is attached, and the old RGB8_STRICT system override is absent.
+```text
+-wex-yoga-edp120-admit -wex-yoga-edp120-wm -wex-yoga-hdmi-colortrace
+```
 
-After login **with the picture already stable (even if falsely colored)**,
-run \`bash collect_color.sh\` from the extracted CI artifact. Upload
-the generated \`~/Desktop/Yoga_HDMI_Color_*.zip\`.
+建议在显示器已连接机身 HDMI、模式稳定后执行：
 
-If the test crashes or cannot boot, return to the untouched original EFI.
-No reset of NVRAM, disabling graphics acceleration or modifying system Kexts
-is necessary.
+```bash
+nvram boot-args
+ioreg -p IOService -l -w0 | grep 'WEXYogaHDMIColorLive'
+bash collect_color.sh
+```
 
-## Interpretation
+`collect_color.sh` 与 `decode_color.py` 放在同一目录；采集包输出到桌面，名称形如 `Yoga_HDMI_Color_*.zip`。不要在睡眠、插拔或刷新率切换过程中高频读取。
 
-- TRANS_DDI_FUNC_CTL bits22:20 report transcoder port depth.
-- Display13 PIPE_MISC bits7:5 report port output bpc and bit11 is YUV.
-- VIDEO_DIP_CTL AVI and GCP enable bits must be checked before interpreting
-  any packet words; the decoder prints raw fields for manual inspection.
-- If color corruption persists while these values agree on RGB 8bpc and
-  AVI/GCP, investigate CSC/transmitter/pixel packing next instead of
-  forcing EDID limitations.
+此模块**不写显示寄存器、不改 EDID、色彩转换矩阵、gamma、HPD 事件和时序**。实验性的 `-wex-yoga-hdmi-first-hpd`、`-wex-yoga-rgb8`、`-wex-yoga-hdmi600` 与本次只读诊断无关，不应混开。
 
-Only the new branch is changed. The old \`main\`, proven WM_ONLY and
-first-hotplug branches and the installed EFI are not modified.
+## 四、构建与状态
+
+[ColorTrace 构建成功记录](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44470795471)；之后实机已确认属性存在、快照有效。**只读诊断成功并不等于此旧分支具有 Deep8 伪色修复能力。**
+
+4K60、首次点亮和热插拔是独立问题，不能以颜色寄存器验证结果代替这些项目的测试。
