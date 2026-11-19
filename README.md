@@ -1,55 +1,23 @@
-# Yoga Pro 14s IRH8 A7A0 — first HDMI after panel-only boot
+# Lenovo Yoga Pro 14s IRH8（82Y7）— HDMI 首次热插拔实验分支
 
-**Status: EXPERIMENTAL one-shot *hypothesis*, not a verified HDMI hotplug repair.**
+**状态：HPD 首次连接的诊断/候选修复，尚未实机证明该修复有效。**
 
-**CI (2026-11-19): PASS — 219/219 official regressions, standalone HPD unit assertions, RELEASE compilation, compat check and packaging.** [Successful Actions run](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44444094099) | [Download independent test Kext (artifact 14492553208)](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44444094099/artifacts/14492553208). **Not yet physical-device verified; do not call fixed.**
+基于 WhateverXe 0.8.3 / WhateverXe Graphics 0.4.4 和已验证的内屏 120Hz WM_ONLY/V2 补丁。本分支重点研究：**如果仅以内屏开机，之后第一次连接机身 HDMI，外接显示器可能没有响应。**
 
+## 主要内容
 
+- `-wex-yoga-hdmi-hpdtrace`：只读采集 HDMI B 端口探测、PCH/HPD IRQ 及事件转换计数。
+- `-wex-yoga-hdmi-first-hpd`：在严格限定场景下，将首次 HDMI B 短 HPD 事件转换为一次长 HPD 的实验性方案；未证实能修复实机。
+- 不更改 HDMI 时钟、不修改 EDID、不强制 RGB8，也不处理 4K60 的 SCDC。
+- [完整的中文 HPD 技术说明与测试步骤](wexhdmi/README.md)。
+- [本分支 CI 编译记录](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44444094099)。
 
-On the physical Yoga, HDMI DDI B works when attached **before boot** and subsequent removal/reinsertion works. When the Yoga boots with only eDP, first HDMI insertion does **not** attach. Existing WM_ONLY 0.8.3 telemetry shows both the PCH HDMI IRQ bits and DDI HPD detector enabled even in the failing boot; this rules out blindly enabling HPD masks again.
+## 与 HDMI 伪色修复的关系
 
-This code is **not** the E1.0 transplant (that multi-output implementation is already in official 0.8.3). It starts from the **same exact source patches as the successful WM_ONLY/V2** and does not add HDMI600, RGB8, USB-C, Thunderbolt/DP, DSC, GateRetry or eDP-keep.
+**2026-11-19：U27P10 的 4K30 伪色已在后续分支获得实机修复，但不是由本分支的 HPD 参数完成的。**
 
-## Diagnostic and limited candidate fix
+在 [最新 EDID Deep8 实验分支](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-yoga-edid-ab) 中，`-wex-yoga-hdmi-edid-deep8` 限制目标显示器的 Deep Color 声明，使原生 HDMI 输出从 YCbCr 10 bpc 回到 YCbCr 8 bpc，实际颜色恢复正常。**本热插拔分支不包含该修复开关。**
 
-The exact native Display13 `collect()` adapter translates a DDI B **long HPD** pulse into native hotplug bit **2**, and a **short HPD** into bit **3**. A short pulse after a panel-only boot might not cause the native stack to treat a previously absent monitor as a new sink. This is *unproven* until the actual IRQ is captured.
+首次点亮、开机后首次热插拔、4K60 黑屏与 4K30 伪色不能混为一谈；不要因为后续颜色正常，就认为本分支 HPD 假设已经验证成功。
 
-The optional flags are:
-- `-wex-yoga-hdmi-hpdtrace`: **read-only**, publishes a live lazy `WEXYogaHDMIHPDTrace` OSData snapshot. Safe for first diagnostic run. No event rewriting.
-- `-wex-yoga-hdmi-first-hpd`: **one-shot test workaround**. Only when this same A7A0 WM_ONLY device selects **HDMI DDI B**, the **very first native HDMI-B probe returned 0**, and a **short B HPD event actually reaches the Display13 IRQ handler with no B long pulse**, change that *one* forwarded native short B event into a long B event. No registers, EDID data, timing or external-link clocks are changed; native driver still tests and accepts/rejects the real sink. Only one attempt per boot. If no event arrives, the fix does **nothing**.
-
-**Do not test the second flag until the first flag shows a B-short IRQ.** If the result is zero, the actual failure is earlier (physical HPD delivery/IRQ or power) or later (framebuffer admission), and this hypothesis must not be presented as a solution.
-
-### IORegistry record schema (20 little-endian uint32)
-
-`WEXYogaHDMIHPDTrace = [schema,firstB,lastB,probesB,irqCalls,deCalls,pchMasterHits,bLongHits,bShortHits,promotions,lastPCH,lastDDI,lastEvents,forwardedEvents,status,irqEnabled,irqFaulted,activePipes,admittedPipes,observations]`.
-
-- `firstB=0`: initial HDMI B was disconnected. `firstB=2`: already connected.
-- `bShortHits>0` and `bLongHits=0`: specifically tests the short-only pulse hypothesis.
-- `pchMasterHits=0` after late cable insertion: no PCH IRQ observed.
-- `bLongHits>0` but no screen: connection/FB path failure beyond pulse mapping.
-- `promotions=1`: workaround forwarded once, *not* proof of physical success.
-
-### Safe staged trial
-
-Preserve your original successfully rebooting WM_ONLY EFI. **Never overwrite it.** Make an independently bootable clone and replace only `EFI/OC/Kexts/WhateverXe.kext` from the CI artifact; keep signed Graphics 0.4.4, all other Kexts and hardware configuration unchanged.
-
-1. **First trial: read-only only.** Add `-wex-yoga-hdmi-hpdtrace` alongside the existing `-wex-yoga-edp120-admit -wex-yoga-edp120-wm`. Do NOT add `-wex-yoga-hdmi-first-hpd` yet.
-2. Disconnect HDMI *before* cold boot, and do not connect the Thunderbolt dock. Boot with eDP only. Record the initial trace; then connect native HDMI at **1080p60**, without reboot. Record the second trace and `system_profiler SPDisplaysDataType`.
-3. Only if `bShortHits>0, bLongHits=0`, test an independent clone with `-wex-yoga-hdmi-first-hpd` **instead of** the audit-only flag. Confirm `promotions=1` AND actual display listing. Without these both, do not call it fixed.
-4. If the external monitor fails, goes black, system hangs or WindowServer stops responding, use untouched WM_ONLY recovery EFI.
-
-**Important:** `WEXYogaHDMIHPDTrace` serializes the latest atomic counters on read. The callback performs no IORegistry writes in an interrupt and no live MMIO reads in its serializer. The fix does not poll, invent events or perform port reset. Expect no change if IRQ delivery is missing.
-
-## Quick collection
-
-After each stage run:
-
-```bash
-ioreg -lw0 -p IOService | grep -E 'WEXYogaHDMIHPDTrace|N97FBIRQEnableCheck|N97FBPortProbe(First2|Last)'
-system_profiler SPDisplaysDataType
-```
-
-Record the first and second outputs separately. The byte array is a little-endian `uint32_t[20]`. The exact N97/HPD trace is sensitive to prior hotplug attempts in that same boot; compare counters as deltas.
-
-CI runs the exact pinned WEX 0.8.3 + Graphics 0.4.4 V2 builder, pure C++ edge-case assertions, upstream regression tests and RELEASE compilation. **Compile success never proves the one-shot fix works on the machine.**
+只在独立测试 EFI 中使用，保留可启动的恢复 EFI，不合并到 `main`。
