@@ -44,7 +44,7 @@ uint32_t XE::wrapDisplay13HDMI2TMDS(void *controller,void *fb,void *path,const v
     const uint64_t clock=t ? t->pixelClock : 0;
     const bool highMode=s->yogaHDMI2LinkEnabled && clock>340000000ULL;
     const auto call=__sync_add_and_fetch(&s->yogaHDMI2TMDSCalls,1U);
-    const uint64_t entry[]={1,call,clock,highMode,
+    uint64_t entry[]={1,call,clock,highMode,
        s->yogaHDMI2LinkEnabled,controller==s->adlnTopologyController,
        bool(s->display13HDMII2CRequest),bool(s->yogaHDMI2GMBusWaitReady)};
     root->setProperty("WEXYogaHDMI2TMDSLast",entry,sizeof(entry));
@@ -67,7 +67,7 @@ uint32_t XE::wrapDisplay13HDMI2TMDS(void *controller,void *fb,void *path,const v
     }
     const auto native=FunctionCast(wrapDisplay13HDMI2TMDS,s->orgDisplay13HDMI2TMDS)(
         controller,fb,path,timing);
-    const uint64_t done[]={1,call,clock,highMode,uint64_t(native),restore};
+    uint64_t done[]={1,call,clock,highMode,uint64_t(native),restore};
     root->setProperty("WEXYogaHDMI2TMDSNativeLast",done,sizeof(done));
     if(highMode) {
         root->setProperty("WEXYogaHDMI2TMDSHighNative",done,sizeof(done));
@@ -112,7 +112,7 @@ uint32_t XE::wrapDisplay13HDMI2TMDS(void *controller,void *fb,void *path,const v
       "preflight valid DDI")
     s=once(s,
       '    if(!plan.valid)return false;\n    struct IO {',
-      '    const uint64_t preflight[]={1,cfg[0],uint64_t(caps.valid),uint64_t(caps.scdc),\n'
+      '    uint64_t preflight[]={1,cfg[0],uint64_t(caps.valid),uint64_t(caps.scdc),\n'
       '        uint64_t(caps.maxKHz),t->pixelClock,t->pixelEncoding,\n'
       '        t->bitsPerColorComponent,uint64_t(control),uint64_t(plan.valid)};\n'
       '    debugRoot->setProperty("WEXYogaHDMI2SCDCCaps",preflight,sizeof(preflight));\n'
