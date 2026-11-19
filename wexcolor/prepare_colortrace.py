@@ -43,8 +43,9 @@ static bool wexYogaHDMIColorSerialize(void *,void *,OSSerialize *serializer) {
     // No powered mapping or native driver owner => return an explicit
     // unavailable snapshot, never guess zeros are valid register contents.
     if(c.lock && c.map && c.engineEnabled && callbackXE &&
-       callbackXE->display13FramebufferRequested) {
-        IOLockLock(c.lock);
+       callbackXE->display13FramebufferRequested && IOLockTryLock(c.lock)) {
+        // Nonblocking: a concurrent modeset makes this read unavailable
+        // instead of creating a potential IORegistry/display-lock cycle.
         if(c.map && c.engineEnabled) {
             Display13FBPowerIO io {c.map};
             const uint32_t before=io.read(0x45404);
