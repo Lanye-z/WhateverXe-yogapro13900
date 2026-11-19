@@ -5,7 +5,7 @@ if [ "$#" -eq 0 ]; then LABEL=baseline; else LABEL="$1"; fi
 case "$LABEL" in baseline|admit|black60|recovered|fallback) ;; *) echo "usage: bash collect.sh baseline|admit|black60|recovered|fallback" >&2; exit 2;; esac
 SELF="$(cd "$(dirname "$0")" && pwd)"
 STAMP="$(date +%Y%m%d_%H%M%S)"
-DIR="$HOME/Desktop/Yoga_HDMI600_$LABEL_$STAMP"
+DIR="$HOME/Desktop/Yoga_HDMI600_""$LABEL""_""$STAMP"
 mkdir -p "$DIR"
 printf 'Stage: %s\nCaptured: %s\n' "$LABEL" "$(date)" > "$DIR/ABOUT.txt"
 {
