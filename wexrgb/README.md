@@ -1,92 +1,54 @@
-# Yoga 82Y7 / A7A0 / U27P10 — native HDMI color policy experiments
+# A7A0 HDMI 原生颜色模式审计（ColorPolicy）
 
-**EXPERIMENTAL. Not a validated picture fix. Use independent recovery/test EFI.**
-Base is *pinned* official WhateverXe 0.8.3 + Graphics 0.4.4 with existing
-WM_ONLY/V2 internal 3K120, HDMI HPD tracing and successful ColorTrace sampler.
-None of these existing paths is changed; default boot behaviour is unchanged.
+**定位：用于查明 macOS 如何选择颜色模式的中间实验分支；它不是最终解决 U27P10 伪色的开关。**
 
-## Evidence behind this work
+本模块在已验证的 WhateverXe 0.8.3 / WhateverXe Graphics 0.4.4、WM_ONLY/V2 内屏 120Hz、HDMI HPD 诊断和 ColorTrace 基础上，增加对原生 `AppleIntelFramebufferController::setColorMode` 的审计。默认不修改调用参数，不修改 EDID 或 HDMI MMIO 寄存器。
 
-At native HDMI **4K30**, U27P10 ColorTrace reported:
-- physical pipe B / DDI B, TRANS_DDI_FUNC_CTL = 0x90130200, **10 bpc**
-- PIPE_MISC = 0x01800830, **YCbCr / 10 bpc**
-- VIDEO_DIP_CTL = 0x00001100, AVI enabled and GCP disabled
-- Plane XRGB8888, framebuffer ARGB8888.
-The working **27B2** was observed at 1080p75 but has **not** yet been sampled
-with the new physical register tracer. Both monitors' DDC/EDID reads succeed.
+## 一、实机采集结果（2026-11-19）
 
-Issue #74 (ADL-H) changed native DDC EDID to recover a similar picture.
-Issue #120 (TGL-H35) showed a forced external 8 bpc workaround, but both
-were on different paths. This branch does NOT modify EDID, CSC or MMIO
-register writes and does not assume those reported fixes are portable.
+AOC U27P10 经 Lenovo Yoga Pro 14s IRH8（82Y7，Intel A7A0）机身 HDMI DDI B 连接：
 
-## Control flags
+| 观察项目 | 实机结果 |
+| --- | --- |
+| `WEXYogaHDMIColorModeHookReady` | `Yes`，钩子安装成功 |
+| 物理端口与 Pipe | DDI B / Pipe 1 |
+| 原生 `setColorMode` 的 `mode` | `0x100`（256） |
+| 原生 `setColorMode` 的 `depth` | `0` |
+| 当时的 HDMI 输出 | YCbCr 4:4:4 / 10 bpc，存在伪色 |
+| 采集断面 | U27P10 的 2560×1440 与 3840×2160 输出 |
 
-Keep -wex-yoga-edp120-admit, -wex-yoga-edp120-wm,
--wex-yoga-hdmi-colortrace and their normal unrelated boot arguments.
+这说明旧实验假设的 `depth=8/10/24/30` 在本机不成立；不应把 `mode=0x100` 直接解释为某一种颜色格式，亦不应盲目改成 `mode=1`。
 
-**First, use only**
-  -wex-yoga-hdmi-mode-audit
+## 二、启动参数的实际用途
 
-This hooks native AppleIntelFramebufferController::setColorMode and records
-its actual input arguments: native 'mode' and 'depth', associated DDI/pipe,
-and whether the A7A0/U27P10 qualification was satisfied.
+| 参数 | 作用 | 建议 |
+| --- | --- | --- |
+| `-wex-yoga-hdmi-mode-audit` | 只读记录原生颜色模式函数的入参及匹配范围 | 可继续用于诊断 |
+| `-wex-yoga-hdmi-bpc8-test` | 原先假设数字位深参数可按 10→8 或 30→24 调整 | **不适用于本机当前实测参数** |
+| `-wex-yoga-hdmi-rgb8-test` | 原先假设数字位深可调整，且 `mode=1` 表示期望的颜色模式 | **未经证实，不建议使用** |
 
-The two MUTUALLY EXCLUSIVE flags below are for a later, explicit,
-recoverable experiment. Do not enable either until mode-audit data has been
-reviewed, especially the donor's numeric argument semantics:
-  -wex-yoga-hdmi-bpc8-test
-  -wex-yoga-hdmi-rgb8-test
+在 `depth=0` 的实测条件下，保护逻辑会跳过不认识的深度编码。即使 Kext 编译通过，也不代表这两个实验开关有效。
 
-Both target only: real A7A0 scoped WEX, HDMI DDI B, physical native
-display path/FB association and exact EDID vendor 05E3/product 2710.
-An unknown depth encoding, dual-test flags or incomplete path qualification
-causes **no change**. These test flags still record mode calls.
+调用审计使用 `WEXYogaHDMIColorModeLive`，保存最近 24 条记录；解码器 `decode_modes.py` 会显示修改前后 `mode/depth`、物理匹配条件及跳过原因。回环缓冲区仅保留最近记录，切换分辨率会刷新其内容。
 
-- bpc8-test: leaves native mode argument alone and changes numeric
-  10 -> 8 or 30 -> 24 (if native depth has the corresponding units).
-- rgb8-test: the same depth experiment, plus native mode -> 1.
-  **This is a test hypothesis from a related TGL/RPL-S report, not a proven
-  AppleIntelTGLFramebuffer/A7A0 enum mapping.**
+## 三、最终有效的修复在后续分支
 
-These only alter native *call arguments* before the donor runs; they never
-manually write PIPE_MISC/TRANS_DDI_FUNC_CTL/AVI/GCP/clock. This is a much
-less invasive location than changing registers after mode setup. However,
-it has NOT been shown that all the color/clock calculation happens downstream
-of setColorMode; ColorTrace readback MUST verify real output consistency.
-Compilation cannot prove the right numeric call semantics.
+经过 ColorTrace 与本审计定位，后续改为在 U27P10 的**原生 HDMI DDC/CTA 能力协商**中仅限制 Deep Color：
 
-## First A/B (passive) capture procedure
+- 参数 `-wex-yoga-hdmi-edid-deep8`，仅在后续 [EDID A/B 分支](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-yoga-edid-ab) 实现，**本 ColorPolicy 分支没有该功能**。
+- 2026-11-19 实机结果：U27P10 4K30 从 YCbCr 10 bpc 伪色变成 YCbCr 8 bpc 正常显示，保持 YCbCr 4:4:4，GCP 仍未启用。
+- 正常画面的出现及寄存器数据共同证明该机的 Deep Color 能力限制方案有效；并非证明本分支的旧 `bpc8-test` 或 `rgb8-test` 修好了问题。
 
-Preserve your currently working daily EFI. Do not overwrite it.
-Only when CI is green, use the new RELEASE Kext in a separate test EFI,
-retaining WhateverXe Graphics 0.4.4.
+相关代码包括 `prepare_policy.py`、`kern_yoga_hdmi_color_policy.hpp`、`collect_policy.sh`、`decode_modes.py` 与对应测试。更多寄存器数据参考 [ColorTrace 文档](../wexcolor/README.md)。
 
-1. Connect U27P10 on **native laptop HDMI before boot**, no TB4 dock.
-   Boot with -wex-yoga-hdmi-mode-audit and -wex-yoga-hdmi-colortrace.
-2. Confirm -wex-yoga-hdmi-mode-audit in nvram boot-args.
-3. Confirm WEXYogaHDMIColorModeHookReady = Yes in ioreg -p IOService -l -w0.
-   If false/missing, stop; do not use policy flags.
-4. Run bash collect_policy.sh from the extracted test Artifact directory.
-5. For a directly comparable normal control, boot with 27B2 before startup
-   and run the SAME script. Return the two generated Yoga_HDMI_Mode_*.zip.
+## 四、构建与安全边界
 
-If the new hook is installed but there are no qualifying U27P10 mode calls,
-test an ordinary mode change once at 4K30, then collect again. Do not hotplug
-during the actual dump, and do not test 4K60 at this stage.
+仅在独立测试 EFI 使用，保留能够启动的原始 EFI；WhateverXe Graphics 0.4.4 不变。
 
-If mode/depth call arguments demonstrate safe, specific semantics, then try
-BPC8 in an independent EFI first, RGB8 separately. After EACH change, read
-back the live port BPC/YUV, transcoder BPC, AVI and GCP. "Patch applied"
-alone never means the picture is fixed or the output protocol is valid.
-An inconsistent output is an immediate failure; restore the daily EFI.
+```bash
+nvram boot-args
+ioreg -p IOService -l -w0 | grep -E 'WEXYogaHDMIColorMode(HookReady|Live)'
+bash collect_policy.sh
+```
 
-## Caveats
-
-- Even read-only hooks can alter timing on untested software.
-- IORegistry native-call trace is a ring: only most recent 24 records.
-- This is a staged **research/test implementation**, not a permanent
-  driver-side color fix.
-- 4K60 TMDS/SCDC and first-late-hotplug issues are different experiments.
-- No system EDID override, original main, successful WM_ONLY or installed
-  user EFI is modified by this branch.
+本分支只负责诊断与此前的未证实策略实验。4K60 的高速 TMDS/SCDC、首次点亮失败和热插拔问题需要分开排查，**不得因颜色问题已在后续分支解决，就宣称这些问题也已解决**。
