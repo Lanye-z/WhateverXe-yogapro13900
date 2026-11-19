@@ -94,9 +94,11 @@ def run(source:Path,graphics:Path):
     orig=once(orig,scope,scoped,"scoped A7A0/HDMI-B enable")
 
     methods=(REF/"hdmi_runtime_methods.inc").read_text()
-    if any(methods.count("XE::"+x+"(")!=1 for x in (
-      "display13HDMISCDCOwned","display13HDMISCDCTransfer",
-      "prepareDisplay13HDMISCDC","wrapDisplay13HDMIOnline")):
+    if any(methods.count(sig)!=1 for sig in (
+      "bool XE::display13HDMISCDCOwned(",
+      "bool XE::display13HDMISCDCTransfer(",
+      "bool XE::prepareDisplay13HDMISCDC(",
+      "uint32_t XE::wrapDisplay13HDMIOnline(")):
         raise RuntimeError("reference native runtime methods incomplete")
     # The Air14 adapter already checks native port binding, controller ownership,
     # a live IORecursiveLock and cache generation during every SCDC transaction.
