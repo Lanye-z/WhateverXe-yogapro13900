@@ -215,6 +215,16 @@ def run(source:Path,graphics:Path):
       "native I2C symbol exact qualification")
 
     cpp.write_text(orig)
+    # Keep the upstream panel-depth fixture active. Its minimal synthetic XE
+    # does not include the new opt-in HDMI member, so add a no-op mock only
+    # to this test fixture; panel behaviour and assertions stay unchanged.
+    panel_test=source/"tests/tgl_panel_depth_route.py"
+    panel=panel_test.read_text()
+    panel=once(panel," bool display13FramebufferRequested=false;",
+      " bool display13FramebufferRequested=false; bool yogaHDMI4K60Enabled=false;\\n"
+      " static void configureDisplay13HDMISDR(void*,void*){};",
+      "synthetic panel fixture's no-op HDMI gate")
+    panel_test.write_text(panel)
     fixture=source/"tests/fixtures/boot_argument_names.json"
     args=json.loads(fixture.read_text())
     flag="-wex-yoga-hdmi4k60"
@@ -230,7 +240,8 @@ def run(source:Path,graphics:Path):
       "WhateverXe/kern_xe.cpp","WhateverXe/kern_xe.hpp",
       "WhateverXe/kern_display13_wm.hpp",
       "tests/fixtures/boot_argument_names.json",
-      "tests/display13_offline.py","tests/dsi_port_adapter.py"}
+      "tests/display13_offline.py","tests/dsi_port_adapter.py",
+      "tests/tgl_panel_depth_route.py"}
     if changed!=expected:raise RuntimeError(f"unexpected modified tracked paths: {changed ^ expected}")
     subprocess.run(["git","-C",str(source),"diff","--check"],check=True)
     print("PREPARED Yoga A7A0 HDMI 4K60 opt-in over 0.8.3 WM_ONLY + existing HPD trace.")
