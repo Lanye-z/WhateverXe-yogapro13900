@@ -5,7 +5,7 @@ on:
     paths: ['wexrgb/**', '.github/workflows/yoga-hdmi-colorpolicy.yml']
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   build:
     runs-on: macos-15-intel
@@ -42,6 +42,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          exec > >(tee "$GITHUB_WORKSPACE/ci_prepare.log") 2>&1
           python3 -m py_compile wexcolor/prepare_colortrace.py wexcolor/decode_color.py wexcolor/test_decoder.py
           python3 wexcolor/test_decoder.py
           python3 -m py_compile wexrgb/prepare_policy.py wexrgb/decode_modes.py wexrgb/test_mode_decoder.py
@@ -54,18 +55,23 @@ jobs:
           ln -s "$GITHUB_WORKSPACE/Lilu/Lilu/Library" Source/Lilu.kext/Contents/Resources/Library
       - name: Official 0.8.3 regression tests
         working-directory: Source
-        run: python3 tools/test.py
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/test.py 2>&1 | tee "$GITHUB_WORKSPACE/ci_test.log"
       - name: Compile RELEASE and check compat
         working-directory: Source
         shell: bash
         run: |
           set -euo pipefail
+          exec > >(tee "$GITHUB_WORKSPACE/ci_build.log") 2>&1
           python3 tools/build.py --release --sdk "$GITHUB_WORKSPACE/MacKernelSDK" --output build/RELEASE
           python3 tools/check_compat_version.py build/RELEASE
       - name: Package for independent EFI only
         shell: bash
         run: |
           set -euo pipefail
+          exec > >(tee "$GITHUB_WORKSPACE/ci_package.log") 2>&1
           KEXT=Source/build/RELEASE/WhateverXe.kext
           test -s "$KEXT/Contents/MacOS/WhateverXe"
           /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$KEXT/Contents/Info.plist" | grep -qx '0.8.3'
@@ -83,6 +89,13 @@ jobs:
           cp Source/build/RELEASE/build-manifest.json dist/
           (cd dist && shasum -a 256 WhateverXe*.zip > SHA256SUMS)
           unzip -t dist/WhateverXe_0.8.3_WMONLY_HDMIColorPolicy_TEST.zip
+      - name: Publish CI results to the experiment branch
+        if: always()
+        shell: bash
+        env:
+          CI_REPORT_TOKEN: ${{ github.token }}
+          CI_RESULT: ${{ job.status }}
+        run: python3 wexrgb/report_ci.py
       - uses: actions/upload-artifact@v4
         with:
           name: WhateverXe-0.8.3-WMONLY-HDMI-ColorPolicy-TEST
