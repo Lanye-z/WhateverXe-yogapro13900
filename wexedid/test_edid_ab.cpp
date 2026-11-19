@@ -34,7 +34,7 @@ static void checkOnly(const uint8_t *a,const uint8_t *b,
     }
 }
 int main(){
-    uint8_t original[128] {},data[128] {},before[128] {};
+    uint8_t original[128] {},data[128] {};
     sample(original);
     memcpy(data,original,128);
     const unsigned aAllowed[]={31,46,127};
