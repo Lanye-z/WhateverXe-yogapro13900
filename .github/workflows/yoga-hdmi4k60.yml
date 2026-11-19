@@ -46,6 +46,19 @@ jobs:
           mkdir -p Source/Lilu.kext/Contents/Resources
           ln -s "$GITHUB_WORKSPACE/Lilu/Lilu/Headers" Source/Lilu.kext/Contents/Resources/Headers
           ln -s "$GITHUB_WORKSPACE/Lilu/Lilu/Library" Source/Lilu.kext/Contents/Resources/Library
+      - name: Confirm proven U27P10 Deep8 patch is compiled into this variant
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f Source/WhateverXe/kern_yoga_hdmi_edid_ab.hpp
+          grep -Fq 'checkKernelArgument("-wex-yoga-hdmi-edid-deep8")' Source/WhateverXe/kern_xe.cpp
+          grep -Fq '"WEXYogaHDMIEDIDABApplied"' Source/WhateverXe/kern_xe.cpp
+          grep -Fq 'checkKernelArgument("-wex-yoga-hdmi4k60")' Source/WhateverXe/kern_xe.cpp
+          grep -Fq '"-wex-yoga-hdmi-edid-deep8"' Source/tests/fixtures/boot_argument_names.json
+          clang++ -std=c++17 -O1 -Wall -Wextra -Werror -I wexedid wexedid/test_edid_ab.cpp -o /tmp/test_yoga_deep8
+          /tmp/test_yoga_deep8
+          clang++ -std=c++17 -O1 -Wall -Wextra -Werror -I wexrgb wexrgb/test_policy.cpp -o /tmp/test_yoga_color_policy
+          /tmp/test_yoga_color_policy
       - name: Run HDMI 2.0 EDID and SCDC CPU regression tests
         shell: bash
         run: |
