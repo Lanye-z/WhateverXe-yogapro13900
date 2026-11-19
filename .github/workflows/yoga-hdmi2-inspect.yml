@@ -1,0 +1,32 @@
+name: Inspect exact 0.8.3 Display13 high-speed HDMI call sites
+on:
+  workflow_dispatch:
+  push:
+    branches: [experiment/wex-0.8.3-yoga-hdmi2-link-safe]
+    paths: ['.github/workflows/yoga-hdmi2-inspect.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: b00t0x/WhateverXe
+          ref: f26a36880c49ea1063393d943527808c0f38feca
+      - name: Show native hooks and call-site contexts (read-only)
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          text=Path("WhateverXe/kern_xe.cpp").read_text().splitlines()
+          patterns=["XE::wrapTGLLightUpTMDS(", "XE::processDisplay13FramebufferOutput(", "XE::processDisplay13Framebuffer(", "orgTGLLightUpTMDS", "wrapTGLLightUpTMDS,", "hwDoI2CRequest", "getOnlineInfo", "wrapTGLModeTiming("]
+          hits=[(i,x) for i,x in enumerate(text) if any(s in x for s in patterns)]
+          for i,line in hits:
+              print(f"\n===== HIT at line {i+1}: {line.strip()} =====")
+              start=max(0,i-(4 if "orgTGLLightUpTMDS" in line else 12))
+              stop=min(len(text),i+(25 if "orgTGLLightUpTMDS" in line else 105))
+              for j in range(start,stop):
+                  print(f"{j+1:05d} {text[j]}")
+          print("TOTAL LINES",len(text))
+          PY
