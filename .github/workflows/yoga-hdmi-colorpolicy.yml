@@ -8,7 +8,7 @@ on:
     branches: [experiment/wex-0.8.3-yoga-hdmi-colortrace]
     paths: ['wexrgb/**', '.github/workflows/yoga-hdmi-colorpolicy.yml']
 permissions:
-  contents: write
+  contents: read
 jobs:
   build:
     runs-on: macos-15-intel
@@ -94,13 +94,6 @@ jobs:
           cp Source/build/RELEASE/build-manifest.json dist/
           (cd dist && shasum -a 256 WhateverXe*.zip > SHA256SUMS)
           unzip -t dist/WhateverXe_0.8.3_WMONLY_HDMIColorPolicy_TEST.zip
-      - name: Publish CI results to the experiment branch
-        if: always()
-        shell: bash
-        env:
-          CI_REPORT_TOKEN: ${{ github.token }}
-          CI_RESULT: ${{ job.status }}
-        run: python3 wexrgb/report_ci.py
       - uses: actions/upload-artifact@v4
         with:
           name: WhateverXe-0.8.3-WMONLY-HDMI-ColorPolicy-TEST
