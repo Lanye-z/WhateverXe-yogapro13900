@@ -1,0 +1,253 @@
+CI run: https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44484575073
+Branch: experiment/wex-0.8.3-yoga-hdmi-colorpolicy
+State before reporting: failure
+Timestamp: 2026-11-19T08:20:19.825300+00:00
+
+===== ci_prepare.log (last 18000 chars) =====
+PASS: HDMI color 59-u32 schema, validity, masks, RGB/depth decode
+PASS: color-mode trace schema and recorder decoding
+PASS: A7A0 HDMI colour policy guarded experiment helper
+VERIFIED V2: pinned 0.8.3 + CTL2; scoped eDP mode admission; WM variant opt-in = True
+NO VBT/HDMI/DP/Graphics package/EDID/DSC/auto mode switches
+PASS: EXACT pinned WM_ONLY/V2 + A7A0/HDMI-B opt-in one-shot trial
+No display register writes, no HDMI600/RGB8/DP changes
+PASS: pinned WEX 0.8.3, WM_ONLY + existing HPD trace preserved
+PASS: opt-in A7A0 HDMI B on-demand MMIO read, no register writes
+PASS: original HDMI/WM/HPD/ColorTrace source preserved
+PASS: opt-in native colour mode route, strict A7A0+DDI B+U27P10 qualification
+
+
+===== ci_test.log (last 18000 chars) =====
+{
+  "passed": 216,
+  "failed": [
+    "display13_tc_lightup",
+    "provider_binding",
+    "compat_exports",
+    "compat_producer",
+    "dsi_backing_adapter"
+  ],
+  "skipped": {
+    "tgl_aux_native_native": [
+      "donor"
+    ],
+    "tgl_boot_power_native": [
+      "donor"
+    ],
+    "tgl_disable_native_native": [
+      "donor"
+    ],
+    "display13_agdc_native": [
+      "donor"
+    ],
+    "display13_shutdown_native": [
+      "donor"
+    ],
+    "dsi_update_dispatch_native": [
+      "donor"
+    ],
+    "dsi_path_disposal_native": [
+      "donor"
+    ],
+    "dsi_surface_native": [
+      "donor"
+    ],
+    "dsi_native_cache_native": [
+      "donor"
+    ],
+    "dsi_native_mode_native": [
+      "donor"
+    ],
+    "dsi_boot_probe_native": [
+      "donor"
+    ],
+    "dsi_port_adapter_native": [
+      "donor"
+    ],
+    "dsi_apple_adapter_native": [
+      "donor"
+    ],
+    "dsi_apple_timing_native": [
+      "donor"
+    ],
+    "adls_ddi_power_native": [
+      "donor"
+    ],
+    "display13_tc_preparation_native": [
+      "donor"
+    ],
+    "display13_retirement_native": [
+      "donor"
+    ],
+    "display13_port_wait_native": [
+      "donor"
+    ],
+    "framebuffer_training_registration_native": [
+      "donor"
+    ],
+    "framebuffer_common_native": [
+      "donor"
+    ],
+    "tgl_hdmi_wiring_native": [
+      "donor"
+    ],
+    "framebuffer_donor_runtime_native": [
+      "donor"
+    ],
+    "display13_training_lease_native": [
+      "donor"
+    ],
+    "display13_tc_native_native": [
+      "donor"
+    ],
+    "display13_ddc_native": [
+      "donor"
+    ],
+    "tgl_power_fuses_native": [
+      "donor"
+    ],
+    "display13_aux_native": [
+      "donor"
+    ],
+    "display13_sst_native": [
+      "donor"
+    ],
+    "display13_combo_clock_native": [
+      "donor"
+    ],
+    "adls_panel_pwm_native": [
+      "donor"
+    ],
+    "display13_panel_runtime_native": [
+      "donor"
+    ],
+    "tgl_panel_timing_native": [
+      "donor"
+    ],
+    "tgl_agdc_port_status_native": [
+      "donor"
+    ],
+    "tgl_tc_native_native": [
+      "donor"
+    ],
+    "tgl_tc_mode_native": [
+      "donor"
+    ],
+    "tgl_mode_native_native": [
+      "donor"
+    ],
+    "tgl_panel_depth_route_native": [
+      "donor"
+    ],
+    "adls_donor_native": [
+      "donor"
+    ],
+    "adls_clock_native_native": [
+      "donor"
+    ],
+    "tgl_ccs_native": [
+      "accelerator"
+    ],
+    "tgl_completion_cache_native": [
+      "accelerator"
+    ],
+    "tgl_cps_color_pipe_native": [
+      "accelerator"
+    ],
+    "tgl_ff_dop_native": [
+      "accelerator"
+    ],
+    "tgl_ff_mode_native": [
+      "accelerator"
+    ],
+    "tgl_object_preemption_native": [
+      "accelerator"
+    ],
+    "tgl_object_selector_native": [
+      "accelerator"
+    ],
+    "tgl_render_flush_native": [
+      "accelerator"
+    ],
+    "dsi_backing_adapter_native": [
+      "accelerator"
+    ],
+    "dsi_backing_native": [
+      "accelerator"
+    ],
+    "tgl_rpcs_native": [
+      "accelerator"
+    ],
+    "small_gt_urb_native": [
+      "accelerator"
+    ],
+    "tgl_tlb_preparser_native": [
+      "accelerator"
+    ],
+    "tgl_semaphore_tlb_native": [
+      "accelerator"
+    ],
+    "tgl_iosurface_compression_native": [
+      "accelerator"
+    ],
+    "tgl_gt2_urb_native": [
+      "accelerator"
+    ],
+    "tgl_ccs_alignment_native": [
+      "accelerator",
+      "ccs_records"
+    ],
+    "tgl_outer_flush_native": [
+      "accelerator"
+    ],
+    "tgl_dkl_signal_native": [
+      "donor",
+      "linux_tables"
+    ],
+    "tgl_pcode_edram_native": [
+      "pcode_donor"
+    ],
+    "xelp_forcewake_irq_native": [
+      "accelerator"
+    ],
+    "bigsur_pmap_native": [
+      "BigSur",
+      "hde_source"
+    ],
+    "monterey_pmap_native": [
+      "Monterey",
+      "hde_source"
+    ],
+    "ventura_pmap_native": [
+      "Ventura",
+      "hde_source"
+    ],
+    "sonoma_pmap_native": [
+      "Sonoma",
+      "hde_source"
+    ],
+    "sequoia_pmap_native": [
+      "Sequoia",
+      "hde_source"
+    ],
+    "tahoe_pmap_native": [
+      "Tahoe",
+      "hde_source"
+    ],
+    "host_power_native": [
+      "host",
+      "hde_source"
+    ]
+  },
+  "required_skips": [],
+  "fully_executed": false,
+  "not_selected": 0,
+  "output": "/Users/runner/work/WhateverXe-yogapro13900/WhateverXe-yogapro13900/Source/build/tests/run-r7kwg6pe"
+}
+
+
+===== ci_build.log =====
+Not reached.
+
+===== ci_package.log =====
+Not reached.

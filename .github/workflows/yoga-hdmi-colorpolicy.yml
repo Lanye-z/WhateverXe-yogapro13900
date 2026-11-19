@@ -1,0 +1,102 @@
+name: Yoga 0.8.3 A7A0 HDMI native color-mode audit and BPC8/RGB8 TEST
+on:
+  push:
+    branches: [experiment/wex-0.8.3-yoga-hdmi-colorpolicy]
+    paths: ['wexrgb/**', '.github/workflows/yoga-hdmi-colorpolicy.yml']
+  workflow_dispatch:
+  pull_request:
+    branches: [experiment/wex-0.8.3-yoga-hdmi-colortrace]
+    paths: ['wexrgb/**', '.github/workflows/yoga-hdmi-colorpolicy.yml']
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-15-intel
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: b00t0x/WhateverXe
+          ref: f26a36880c49ea1063393d943527808c0f38feca
+          path: Source
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: b00t0x/WhateverXe-Graphics
+          ref: cf0a21841d0464dd0b0e9c5b1db28d47137a6832
+          path: Graphics
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: acidanthera/MacKernelSDK
+          ref: 05094e5e88cec7caedbfb35e8449ed0db94bf95b
+          path: MacKernelSDK
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: acidanthera/Lilu
+          ref: 1.7.2
+          path: Lilu
+          persist-credentials: false
+      - name: Prepare pinned WM_ONLY / HPD / ColorTrace + guarded native color policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          uname -m
+          test "$(uname -m)" = "x86_64"
+          exec > >(tee "$GITHUB_WORKSPACE/ci_prepare.log") 2>&1
+          python3 -m py_compile wexcolor/prepare_colortrace.py wexcolor/decode_color.py wexcolor/test_decoder.py
+          python3 wexcolor/test_decoder.py
+          python3 -m py_compile wexrgb/prepare_policy.py wexrgb/decode_modes.py wexrgb/test_mode_decoder.py
+          python3 wexrgb/test_mode_decoder.py
+          clang++ -std=c++17 -Wall -Wextra -Werror -I wexrgb wexrgb/test_policy.cpp -o "$RUNNER_TEMP/test_yoga_color_policy"
+          "$RUNNER_TEMP/test_yoga_color_policy"
+          python3 wexrgb/prepare_policy.py Source Graphics
+          mkdir -p Source/Lilu.kext/Contents/Resources
+          ln -s "$GITHUB_WORKSPACE/Lilu/Lilu/Headers" Source/Lilu.kext/Contents/Resources/Headers
+          ln -s "$GITHUB_WORKSPACE/Lilu/Lilu/Library" Source/Lilu.kext/Contents/Resources/Library
+      - name: Official 0.8.3 regression tests
+        working-directory: Source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/test.py 2>&1 | tee "$GITHUB_WORKSPACE/ci_test.log"
+      - name: Compile RELEASE and check compat
+        working-directory: Source
+        shell: bash
+        run: |
+          set -euo pipefail
+          exec > >(tee "$GITHUB_WORKSPACE/ci_build.log") 2>&1
+          python3 tools/build.py --release --sdk "$GITHUB_WORKSPACE/MacKernelSDK" --output build/RELEASE
+          python3 tools/check_compat_version.py build/RELEASE
+      - name: Package for independent EFI only
+        shell: bash
+        run: |
+          set -euo pipefail
+          exec > >(tee "$GITHUB_WORKSPACE/ci_package.log") 2>&1
+          KEXT=Source/build/RELEASE/WhateverXe.kext
+          test -s "$KEXT/Contents/MacOS/WhateverXe"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$KEXT/Contents/Info.plist" | grep -qx '0.8.3'
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$KEXT/Contents/Info.plist" | grep -qx 'org.b00t0x.WhateverXe'
+          mkdir -p dist
+          ditto -c -k --keepParent "$KEXT" dist/WhateverXe_0.8.3_WMONLY_HDMIColorPolicy_TEST.zip
+          git -C Source diff -- WhateverXe tests/fixtures/boot_argument_names.json > dist/PATCH.diff
+          cp Source/WhateverXe/kern_yoga_hdmi_first_hpd.hpp dist/
+          cp wexrgb/README.md dist/README.md
+          cp wexrgb/kern_yoga_hdmi_color_policy.hpp dist/
+          cp wexrgb/collect_policy.sh dist/collect_policy.sh
+          cp wexrgb/decode_modes.py dist/decode_modes.py
+          cp wexcolor/collect_color.sh dist/collect_color.sh
+          cp wexcolor/decode_color.py dist/decode_color.py
+          cp Source/build/RELEASE/build-manifest.json dist/
+          (cd dist && shasum -a 256 WhateverXe*.zip > SHA256SUMS)
+          unzip -t dist/WhateverXe_0.8.3_WMONLY_HDMIColorPolicy_TEST.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WhateverXe-0.8.3-WMONLY-HDMI-ColorPolicy-TEST
+          path: dist/*
+          retention-days: 30
+          if-no-files-found: error
