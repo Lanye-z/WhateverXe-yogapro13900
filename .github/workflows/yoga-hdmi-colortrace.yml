@@ -42,6 +42,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python3 -m py_compile wexcolor/prepare_colortrace.py wexcolor/decode_color.py
           python3 wexcolor/prepare_colortrace.py Source Graphics
           mkdir -p Source/Lilu.kext/Contents/Resources
           ln -s "$GITHUB_WORKSPACE/Lilu/Lilu/Headers" Source/Lilu.kext/Contents/Resources/Headers
