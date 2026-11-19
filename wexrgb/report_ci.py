@@ -8,7 +8,7 @@ import base64,datetime,json,os,pathlib,urllib.request,urllib.error
 
 def main():
     repo=os.environ["GITHUB_REPOSITORY"]
-    branch=os.environ["GITHUB_REF_NAME"]
+    branch=os.environ.get("GITHUB_HEAD_REF") or os.environ["GITHUB_REF_NAME"]
     run=os.environ["GITHUB_RUN_ID"]
     result=os.environ.get("CI_RESULT","unknown")
     token=os.environ["CI_REPORT_TOKEN"]
