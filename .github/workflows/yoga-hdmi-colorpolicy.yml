@@ -45,6 +45,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          uname -m
+          test "$(uname -m)" = "x86_64"
           exec > >(tee "$GITHUB_WORKSPACE/ci_prepare.log") 2>&1
           python3 -m py_compile wexcolor/prepare_colortrace.py wexcolor/decode_color.py wexcolor/test_decoder.py
           python3 wexcolor/test_decoder.py
