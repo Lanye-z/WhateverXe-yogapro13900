@@ -1,0 +1,27 @@
+name: Inspect original GMBUS scope and register read exact code
+on:
+  push:
+    branches: [experiment/wex-0.8.3-yoga-hdmi2-link-safe]
+    paths: ['.github/workflows/yoga-hdmi2-gmbus-context.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: b00t0x/WhateverXe
+          ref: f26a36880c49ea1063393d943527808c0f38feca
+      - name: Print only GMBUS scope and dispatch methods
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          lines=Path('WhateverXe/kern_xe.cpp').read_text().splitlines()
+          q=['struct Display13GMBusScope','uint32_t XE::wrapDisplay13GMBus(', 'uint32_t XE::wrapDisplay13GMBusRead(', 'uint32_t XE::wrapDisplay13GMBusWrite(']
+          for i,l in enumerate(lines):
+              if any(k in l for k in q):
+                  print('\n===== MATCH',i+1,':',l.strip(),'=====')
+                  for j in range(max(0,i-3),min(len(lines),i+68)):
+                      print(f'{j+1:05d} {lines[j]}')
+          PY
