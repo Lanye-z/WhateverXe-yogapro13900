@@ -4,6 +4,9 @@ on:
     branches: [experiment/wex-0.8.3-yoga-hdmi-colorpolicy]
     paths: ['wexrgb/**', '.github/workflows/yoga-hdmi-colorpolicy.yml']
   workflow_dispatch:
+  pull_request:
+    branches: [experiment/wex-0.8.3-yoga-hdmi-colortrace]
+    paths: ['wexrgb/**', '.github/workflows/yoga-hdmi-colorpolicy.yml']
 permissions:
   contents: write
 jobs:
