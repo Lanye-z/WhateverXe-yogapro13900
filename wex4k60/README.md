@@ -1,3 +1,15 @@
+# 严重回归警告｜本 4K60 实验已暂停实机测试
+
+**2026-11-19 Yoga Pro 14s IRH8 实机反馈：添加 -wex-yoga-hdmi4k60 后核显只显示 22MB、内屏缩放异常、外接 HDMI 不亮。这个结果属于驱动初始化/加速路径的严重回归，具体触发点尚待日志和源码验证。**
+
+**请立即停用 -wex-yoga-hdmi4k60 并恢复已实测有效的 WM_ONLY + U27P10 EDID Deep8 版本。不要安装本分支此前构建的任何 4K60 测试 ZIP，也不要根据 CI 编译成功认定运行安全。**
+
+静态源码核查发现：启用该参数后，新 LightUpTMDS 包装器对所有 HDMI TMDS 模式执行 prepareDisplay13HDMISCDC；当拥有权/EDID/SCDC 条件不满足时直接返回 kIOReturnNotReady，而不是仅对 >340MHz 高速模式生效。这是可能导致低速 HDMI/Display13 初始模式设置失败的高风险路径，尚不能独断它解释了 22MB。另需核查 LightUpTMDS 与 getOnlineInfo 的重新 Hook 是否与上游路由冲突。
+
+原已验证的颜色修复位于 experiment/wex-0.8.3-yoga-edid-ab，参数 -wex-yoga-hdmi-edid-deep8。首个 4K60 版本曾遗漏它，造成未启用高速参数也重新出现伪色；后续虽补回 Deep8，但 **4K60 开关仍存在上述严重问题，不能进行实机验证**。
+
+---
+
 # Yoga Pro 14s IRH8 · WhateverXe 0.8.3 HDMI 4K60 实验
 
 > **尚未完成 Yoga 实机 4K60 验证。只能在独立测试 EFI 上使用。**
