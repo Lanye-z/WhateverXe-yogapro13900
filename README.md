@@ -1,45 +1,51 @@
-# Yoga Pro 14s IRH8 (82Y7) — WhateverXe 0.8.3, 3K120 WM boot recovery
+# Yoga Pro 14s IRH8 A7A0 — first HDMI after panel-only boot
 
-**Status — 2026-11-18: WM_ONLY (source-equivalent to V2) passed one real-device reboot with the previously selected 3072×1920 @ 120Hz mode restored; 775.69MHz pixel clock, Metal 2 and 1536MB verified AFTER that reboot.** The original V1 admission-only test could enter 120Hz from the desktop but repeatedly booted to black with the high-refresh mode saved.
+**Status: EXPERIMENTAL one-shot *hypothesis*, not a verified HDMI hotplug repair.**
 
-**This is a promising candidate, NOT a long-term stable release.** Repeated warm/cold boots, display sleep/wake and full system sleep, external outputs and dock are **not yet validated**. The user is using the current driver normally before providing further stability results. A brief (<1s) Apple Logo flash remains visible; investigation is **deferred**, not fixed. No new unrelated patches should be added at this stage.
+On the physical Yoga, HDMI DDI B works when attached **before boot** and subsequent removal/reinsertion works. When the Yoga boots with only eDP, first HDMI insertion does **not** attach. Existing WM_ONLY 0.8.3 telemetry shows both the PCH HDMI IRQ bits and DDI HPD detector enabled even in the failing boot; this rules out blindly enabling HPD masks again.
 
-## Exact real-hardware evidence
+This code is **not** the E1.0 transplant (that multi-output implementation is already in official 0.8.3). It starts from the **same exact source patches as the successful WM_ONLY/V2** and does not add HDMI600, RGB8, USB-C, Thunderbolt/DP, DSC, GateRetry or eDP-keep.
 
-| Evidence after the successful WM_ONLY reboot | Result |
-| --- | --- |
-| Machine | Lenovo Yoga Pro 14s IRH8, i9-13900H, Intel 8086:A7A0 rev 04, macOS 26.7.1 (25G241), Graphics 0.4.4 |
-| Display | Native 3072×1920 eDP, `UI Looks like 1536×960 @ 120.00Hz` |
-| `IOFBCurrentPixelClock` | **775690000** |
-| Hardware acceleration | **1536MB VRAM / Metal 2** |
-| `WEXYogaEDP120Scoped` | Yes |
-| `WEXYogaEDP120AdmissionRequested / AdmissionReady` | Yes / Yes |
-| `WEXYogaEDP120AdmissionStatus` | **4** |
-| `WEXYogaEDP120WMEnabled` | **Yes** |
+## Diagnostic and limited candidate fix
 
-This demonstrates one successful **system-level** reboot and 120Hz timing, not a photodiode measurement, repeated-start stability proof or proof of the exclusive root cause. The earlier V1 tests confirmed the 800MHz scoped admission fix; the additional WM `clockFits()` change is strongly implicated in the successful boot A/B.
+The exact native Display13 `collect()` adapter translates a DDI B **long HPD** pulse into native hotplug bit **2**, and a **short HPD** into bit **3**. A short pulse after a panel-only boot might not cause the native stack to treat a previously absent monitor as a new sink. This is *unproven* until the actual IRQ is captured.
 
-## Which build to use
+The optional flags are:
+- `-wex-yoga-hdmi-hpdtrace`: **read-only**, publishes a live lazy `WEXYogaHDMIHPDTrace` OSData snapshot. Safe for first diagnostic run. No event rewriting.
+- `-wex-yoga-hdmi-first-hpd`: **one-shot test workaround**. Only when this same A7A0 WM_ONLY device selects **HDMI DDI B**, the **very first native HDMI-B probe returned 0**, and a **short B HPD event actually reaches the Display13 IRQ handler with no B long pulse**, change that *one* forwarded native short B event into a long B event. No registers, EDID data, timing or external-link clocks are changed; native driver still tests and accepts/rejects the real sink. Only one attempt per boot. If no event arrives, the fix does **nothing**.
 
-- **WM_ONLY — real-device-verified candidate**: [CI artifact](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44315637323/artifacts/14431873939). Implements V1 CTL2 bit-3 and scoped eDP `getOnlineInfo` 720→800MHz, plus the scoped 2-pixels/CDCLK Display13 WM check when enabled.
-- **WM_GATE — CI-only, not hardware tested and not currently needed**: [separate artifact](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44315637323/artifacts/14431804529). Adds optional WorkLoop gate retry from upstream issue #102. It was **not present** in the successful WM_ONLY reboot.
+**Do not test the second flag until the first flag shows a B-short IRQ.** If the result is zero, the actual failure is earlier (physical HPD delivery/IRQ or power) or later (framebuffer admission), and this hypothesis must not be presented as a solution.
 
-[CI run 44315637323](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44315637323) passed the official 0.8.3 regression suite, RELEASE build and compatibility checks for both packages. **WM_ONLY uses the same source patching logic as the earlier V2 `wex120/prepare_120.py` variant.** The separately compiled original V2 archive was not itself tested on the physical machine; compiled binaries need not be byte-identical.
+### IORegistry record schema (20 little-endian uint32)
 
-**Not included in WM_ONLY:** eDP Keep, SetupTimings workarounds, DSC changes, issue #102 gate retry, issue #104 deferred-clock or panel-admission modifications, issue #131 GOP/tiling flash fix, HDMI/Thunderbolt repair.
+`WEXYogaHDMIHPDTrace = [schema,firstB,lastB,probesB,irqCalls,deCalls,pchMasterHits,bLongHits,bShortHits,promotions,lastPCH,lastDDI,lastEvents,forwardedEvents,status,irqEnabled,irqFaulted,activePipes,admittedPipes,observations]`.
 
-## Active working configuration
+- `firstB=0`: initial HDMI B was disconnected. `firstB=2`: already connected.
+- `bShortHits>0` and `bLongHits=0`: specifically tests the short-only pulse hypothesis.
+- `pchMasterHits=0` after late cable insertion: no PCH IRQ observed.
+- `bLongHits>0` but no screen: connection/FB path failure beyond pulse mapping.
+- `promotions=1`: workaround forwarded once, *not* proof of physical success.
 
-```text
--v keepsyms=1 -vi2c-force-polling -ibtcompatbeta -allow3d -disablegfxfirmware -igfxdvmt -wex-yoga-edp120-admit -wex-yoga-edp120-wm
+### Safe staged trial
+
+Preserve your original successfully rebooting WM_ONLY EFI. **Never overwrite it.** Make an independently bootable clone and replace only `EFI/OC/Kexts/WhateverXe.kext` from the CI artifact; keep signed Graphics 0.4.4, all other Kexts and hardware configuration unchanged.
+
+1. **First trial: read-only only.** Add `-wex-yoga-hdmi-hpdtrace` alongside the existing `-wex-yoga-edp120-admit -wex-yoga-edp120-wm`. Do NOT add `-wex-yoga-hdmi-first-hpd` yet.
+2. Disconnect HDMI *before* cold boot, and do not connect the Thunderbolt dock. Boot with eDP only. Record the initial trace; then connect native HDMI at **1080p60**, without reboot. Record the second trace and `system_profiler SPDisplaysDataType`.
+3. Only if `bShortHits>0, bLongHits=0`, test an independent clone with `-wex-yoga-hdmi-first-hpd` **instead of** the audit-only flag. Confirm `promotions=1` AND actual display listing. Without these both, do not call it fixed.
+4. If the external monitor fails, goes black, system hangs or WindowServer stops responding, use untouched WM_ONLY recovery EFI.
+
+**Important:** `WEXYogaHDMIHPDTrace` serializes the latest atomic counters on read. The callback performs no IORegistry writes in an interrupt and no live MMIO reads in its serializer. The fix does not poll, invent events or perform port reset. Expect no change if IRQ delivery is missing.
+
+## Quick collection
+
+After each stage run:
+
+```bash
+ioreg -lw0 -p IOService | grep -E 'WEXYogaHDMIHPDTrace|N97FBIRQEnableCheck|N97FBPortProbe(First2|Last)'
+system_profiler SPDisplaysDataType
 ```
 
-Do not add `-wex-yoga-edp120-gateretry` or substitute WM_GATE on this successful setup. The two 120Hz flags default off on installations that do not request them.
+Record the first and second outputs separately. The byte array is a little-endian `uint32_t[20]`. The exact N97/HPD trace is sensitive to prior hotplug attempts in that same boot; compare counters as deltas.
 
-## Safety and next steps
-
-Keep an independently bootable, untouched 60Hz CTL2 recovery EFI and do not merge the 0.8.3 experiments into the older 0.7.0-based `main` without deliberate integration. **No further forced stress testing is requested now.** In ordinary use, monitor accidental black screens, screen doze recovery, brightness and reboot stability, then update this README only when new device data arrive.
-
-The original V1 cold-restart failure has logs of repeated WindowServer `Fallback GPU Display Pipe transaction submission failed` (one boot also lacked the error flood). The successful WM_ONLY reboot is strong evidence of the needed clock/WM budget correction, but no failed-run hardware state directly proved `clockFits()` was the only blocker.
-
-For exact source patching, safeguards and CI, see [wexbootfix/README.md](wexbootfix/README.md).
+CI runs the exact pinned WEX 0.8.3 + Graphics 0.4.4 V2 builder, pure C++ edge-case assertions, upstream regression tests and RELEASE compilation. **Compile success never proves the one-shot fix works on the machine.**
