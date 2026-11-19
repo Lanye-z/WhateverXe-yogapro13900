@@ -19,9 +19,9 @@ def decode(raw: str):
     if not hits:
         raise ValueError("WEXYogaHDMIColorLive absent: confirm test kext and -wex-yoga-hdmi-colortrace")
     data=bytes.fromhex(hits[-1])
-    if len(data)!=62*4:
-        raise ValueError(f"Unexpected record size {len(data)} bytes (expected 248)")
-    w=struct.unpack("<62I",data)
+    if len(data)!=59*4:
+        raise ValueError(f"Unexpected record size {len(data)} bytes (expected 236)")
+    w=struct.unpack("<59I",data)
     if w[0]!=1:
         raise ValueError(f"Unknown schema {w[0]}")
     result={
