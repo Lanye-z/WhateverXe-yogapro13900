@@ -43,9 +43,11 @@ def main(source,graphics):
            'static Display13FBPowerContext display13FBPower;\n'
            '#include "kern_yoga_hdmi2_candidate.hpp"',
            "candidate runtime helper after Display13 power context")
-    h=once(h,'    DVMTCalcFix modDVMTCalcFix;\n};',
-       '    DVMTCalcFix modDVMTCalcFix;\n'
-       '    // Yoga HDMI2 candidate: tail only, keep existing XE offsets.\n'
+    # Append after the already-installed SST tail. Do NOT rewrite the
+    # original class prefix or move its existing SST fields.
+    h=once(h,'    mach_vm_address_t orgDisplay13DPCDInfo {};\n};',
+       '    mach_vm_address_t orgDisplay13DPCDInfo {};\n'
+       '    // Yoga HDMI2 candidate: tail only, preserve existing XE offsets.\n'
        '    bool yogaHDMI2SafeRequested {false};\n'
        '    bool yogaHDMI2ObserveRequested {false};\n};',"new tail fields")
 
