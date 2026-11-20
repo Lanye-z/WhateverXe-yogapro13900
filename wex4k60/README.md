@@ -40,6 +40,20 @@ Linux i915 的成熟参考实现将 sink SCDC 状态、高 TMDS 比率和 Source
 
 [详细源码位置、记录字段和风险边界](STATIC_SOURCE_AUDIT.md)
 
+## 2026-11-20 17:26 已完成机身 HDMI 4K30 成功基线分析
+
+用户上传了完整 `hdmi30` 采集包并完成静态解码，**没有要求再次切换 4K60**。重点结果：
+
+- 当前 macOS 26.7.1 三屏：内屏 3072×1920 **60Hz**（120Hz 补丁准入就绪但本次实际是 60Hz）、27B2 1080p75、U27P10 3840×2160@30Hz；FrameBuffer@2 的 HDMI 像素时钟 **297MHz**，时钟准入上限 **600MHz**。
+- **机身 U27P10 HDMI 使用 Pipe 2**，`TRANS_DDI_FUNC_CTL=0x90030200`、`PIPE_MISC=0x01800810`（YCbCr 4:4:4 / 8bpc）。不能按旧双屏状态把 HDMI 固定映射为 Pipe1。
+- 当前 U27P10 有效 EDID 中 VIC93–97 分别声明 4K24/25/30/50/60；HDMI Forum VSDB `D8 5D C4 01 78 80 00` 声明 **Max TMDS 600MHz**、**SCDC Present**。排除本轮机身 HDMI 的 EDID 未声明 4K60 或 SCDC。
+- Display13 GMBUS 成功读取 EDID I²C 地址 `0xA0`；部分 `0x74` DDC/CI 风格请求返回 `kIOReturnNotResponding`、其他无效参数返回 `kIOReturnBadArgument`。**正常 4K30 本来就有这些错误，不得作为 4K60 的 SCDC 故障证据**；该轮 GMBUS 请求 1–17 没有 `0xA8` SCDC 请求。
+- SST 补丁的 `FirstDPCD` 首次缓存 **1→0**、累计屏蔽 4 次，DDI5 训练前四次返回 0，直接支持三屏/热拔插修复的已确认结果。
+- `USER_OBSERVATION.txt` 未填写 OSD，不能用软件报告代替显示器物理输入时序确认；**尚无黑屏 4K60 同条件对照**。
+
+[完整脱敏证据表与逐项解码](BASELINE_20261120_HDMI30.md)
+
+---
 ## 阶段 A：使用现有成功 Kext 完成只读取证
 
 **当前分支只增加脚本和文档，完全不更改 WhateverXe 生成器、Kext、NHI/雷电、Graphics、EDID 覆盖、OpenCore 配置或现有启动参数。**
