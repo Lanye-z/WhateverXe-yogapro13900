@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Native-offline test of read-only 4K60 evidence tools; no HDMI hardware required."""
 import json
+import struct
 import subprocess
 import sys
 import tempfile
@@ -27,8 +28,15 @@ with tempfile.TemporaryDirectory(prefix="yoga-hdmi60-readonly-") as td:
                            ("hdmi_recovered",297000000,"30.00")):
         directory=root/stage
         directory.mkdir()
+        values=[0]*21
+        values[0]=3
+        values[1]=1
+        values[2]=2
+        values[8]=0xE00002D8 if stage=="hdmi60black" else 0
+        gmbus=struct.pack("<21Q",*values).hex()
         (directory/"ioreg.txt").write_text(
             f'"IOFBCurrentPixelClock" = {clock}\n'
+            f'"N97FBGMBusLast" = <{gmbus}>\n'
             '"WEXYogaHDMI600Status" = 4\n'
             '"WEXYogaHDMIEDIDABApplied" = Yes\n')
         (directory/"displays.txt").write_text("Resolution: 3840 x 2160\n"
@@ -42,7 +50,9 @@ with tempfile.TemporaryDirectory(prefix="yoga-hdmi60-readonly-") as td:
     out=subprocess.check_output(cmd,text=True)
     assert "CHANGED IOFBCurrentPixelClock" in out
     assert "60Hz option with black physical output is not proof" in out
-    assert "Differing published property keys: 1" in out
+    assert "CHANGED N97FBGMBusLast" in out
+    assert "native=0xE00002D8" in out
+    assert "Differing published property keys: 2" in out
     archive=root/"hdmi30.zip"
     with zipfile.ZipFile(archive,"w") as z:
         for f in inputs[0].iterdir():
