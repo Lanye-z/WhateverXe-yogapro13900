@@ -112,10 +112,13 @@ def format_registry(key, raw):
             payload=bytes.fromhex(match.group(1))
             if len(payload)==21*8:
                 v=[int.from_bytes(payload[i:i+8],"little") for i in range(0,len(payload),8)]
-                return ("schema=%u seq=%u bus=%u speed=%u req@0x28=%u "
-                        "req@0x38=%u native=0x%08X request=0x%08X "
+                # The upper 32 bits of v[5] are the observed
+                # IOI2CRequest sendAddress at the +0x0C offset.
+                send_address=(v[5]>>32)&0xffffffff
+                return ("schema=%u seq=%u bus=%u speed=%u sendAddress=0x%02X "
+                        "req@0x28=%u req@0x38=%u native=0x%08X request=0x%08X "
                         "samples=%u error=%u")%(
-                            v[0],v[1],v[2],v[3],v[6],v[7],
+                            v[0],v[1],v[2],v[3],send_address,v[6],v[7],
                             v[8]&0xffffffff,v[9]&0xffffffff,v[15],v[16])
     if len(raw)>120:
         digest=hashlib.sha256(raw.encode()).hexdigest()[:12]
@@ -196,6 +199,7 @@ def main():
     if len(snaps)==3:
         compare(snaps[1],snaps[2])
     print("\nCAUTION: no live SCDC read/write confirmation is present in this capture method.")
+    print("GMBUS First1..First16 and Last are bounded samples, not the complete 1..N history.")
     print("A 60Hz option with black physical output is not proof that SCDC alone is the root cause.")
     print("If Pipe/Clock/DBUF states differ, investigate rollback before attempting another 60Hz mode.")
 
