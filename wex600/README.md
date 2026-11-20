@@ -1,5 +1,16 @@
 # Yoga Pro 14s IRH8 · 0.8.3 Stable Deep8 + HDMI600 / 只读诊断（A+B）
 
+## 2026-11-20 状态续报：SST 已修复，机身 HDMI4K60 尚未修复
+
+在独立分支 `experiment/wex-0.8.3-yoga-usbc-sst-compat` 启用 `-wex-yoga-tc5-sst` 后，用户实机确认 USB-C 拓展坞恢复显示、三屏独立输出、热拔插正常。这是 **SST 成功**，与当前机身 HDMI 4K60 黑屏属于两条独立路径。本文件原先的 HDMI600 实验只提高 `getOnlineInfo` 的 300→600MHz 模式准入，**没有**完成 HDMI 2.0 SCDC、high TMDS clock ratio、源端 scrambling、PLL/PHY 或错误回滚的全链路验证。
+
+2026-11-20 进一步实测：4K 屏在 HP G4 DP 上只有 4K30 选项，换回 **机身 HDMI** 可以选择 4K60 但外屏黑屏。暂不能将其直接归因为唯一的 SCDC 故障；需在保持现在 SST/eDP/Deep8 工作的前提下，分别验证 sink EDID/SCDC 能力、实际像素/TMDS 时钟、原生 HDMI LightUp 调用路径、GMBUS I2C 能力、源端 1:40 比率/扰码状态、Transcoder/Pipe/PLL 以及失败后回滚。4K60 采用 YCbCr 4:2:0 时所需 TMDS 速率与 4:4:4 不同，必须先获取实际模式参数。
+
+**新的 HDMI4K60 工作只从已验证 SST 分支派生**，不要从本早期 HDMI600/旧 HDMI2 Route 构建替换日常 EFI。原 `-wex-yoga-hdmi2-route-only` 分支已发生核显加速丢失，标记为禁止实机重试。已有 `collect.sh`、`diagnose.py` 可以无需重编译先对照采集 4K30、黑屏4K60与恢复后的状态；采集结果不能冒充完整的物理 SCDC 抓包。
+
+---
+
+
 **这是模式准入 + 诊断合并实验，不是完整的 HDMI 2.0/4K60 修复。**
 **基线为用户在 2026-11-19 重新上传并再次确认正常的 WhateverXe.kext，和原已验证的 experiment/wex-0.8.3-yoga-edid-ab。**
 恢复版 x86_64 主可执行文件 SHA-256：8089a685790a3f19121ba8dcbdc0f8d6ca63cffccc4669a95256615b401d5791。
