@@ -32,6 +32,28 @@ Linux i915 的成熟参考实现将 sink SCDC 状态、高 TMDS 比率和 Source
 - https://github.com/b00t0x/WhateverXe/issues/41 （另一个 ADL-S 平台仅放宽 300MHz 已有实际成功；不适用于推断本机）
 - https://github.com/Lanye-z/WhateverXe-yogapro13900/blob/experiment/wex-0.8.3-yoga-hdmi2-route-diag/wexlink/ROUTE_DIAG_README.md （本机危险旧实验，**仅供复盘**）
 
+## 下一轮只读验证：原生 Apple Mach-O（不用再次切 4K60）
+
+最新 4K30 日志的 `kmutil showloaded` 已确认当前加载的 Apple 显示驱动 UUID 为 **`B6078743-F795-3202-A55E-EA690FA40949`**，与旧 HDMI600 研究的 Apple donor UUID 一致。要进一步确认原生 TMDS/SCDC 函数和调用指令，现有分支增加了 `native_macho_audit.py`（Python 标准库、无需 sudo、不依赖额外安装包）：
+
+```bash
+python3 wex4k60/native_macho_audit.py --out ~/Desktop/Yoga_Display13_NativeAudit.json
+```
+
+该脚本只从实际安装的 Apple Mach-O 读取文件字节，输出 UUID、SHA-256、所需 5 个函数的局部 64 字节及 `image+0x4FFBB` 调用邻域的 128 字节。它不更换 WhateverXe、不读取整个驱动上传、不写硬件寄存器、不切换显示模式，**不是 EFI 修改脚本**。
+
+如提示找不到目标文件，请确认实际安装位置后传入完整路径作为位置参数，例如：
+
+```bash
+python3 wex4k60/native_macho_audit.py "/Library/Extensions/AppleIntelTGLGraphicsFramebuffer.kext/Contents/MacOS/AppleIntelTGLGraphicsFramebuffer" --out ~/Desktop/Yoga_Display13_NativeAudit.json
+```
+
+只需将生成的 JSON 提供给研究分析，不需要提交完整 Apple 驱动二进制；脚本会报告入口机器码是否匹配，但 ABI、返回地址以及 DisplayPath 控制字段还需要据此进一步解释。**在本机真实指令尚未核验前，旧 HDMI2 Route Hook 仍禁止测试。**
+
+[原生 Mach-O 校验与静态调用顺序完整记录](NATIVE_DISPLAY13_HDMI20_STATIC_TIMELINE_20261120.md)
+
+---
+
 ## Display13 HDMI 2.0 的静态调用顺序已经建立（尚未写驱动补丁）
 
 根据 **Linux i915 + 同 A7A0 的 Air14 参考源码 + 本机正常 4K30 日志**，高速 HDMI 的候选阶段顺序应为：
