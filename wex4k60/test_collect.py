@@ -15,6 +15,7 @@ for term in ("sudo ", "nvram -", "pmset -", "kextload", "kmutil load",
     assert term not in source, f"forbidden hardware mutation candidate: {term}"
 assert "nvram boot-args" in source and "system_profiler SPDisplaysDataType" in source
 assert "ioreg -p IOService -l -w0" in source
+assert "N97FBGMBus" in source
 for stage in ("hdmi30", "hdmi60black", "hdmi_recovered", "dock30"):
     assert stage in source
 
