@@ -116,6 +116,7 @@ def main(source,graphics):
     wm_next=s.index('\n// Native RegisterAccessManager',wm_start)
     frag=s[wm_start:wm_next]
     insertion=r'''
+#ifndef WEX_HDMI2_DBUF_FIXTURE
     if(associated && valid && callbackXE->display13HDMIPort(port) &&
        (callbackXE->yogaHDMI2SafeRequested || callbackXE->yogaHDMI2ObserveRequested)) {
         const auto pixelHz=record[3];
@@ -130,12 +131,24 @@ def main(source,graphics):
         if(pixelHz>340000000ULL)
            IORegistryEntry::getRegistryRoot()->setProperty("WEXYogaHDMI2HighLast",snapshot,sizeof(snapshot));
     }
+#endif
 '''
     frag=once(frag,'\tIOLockUnlock(c.lock);\n\tIORegistryEntry::getRegistryRoot()->setProperty("N97FBPipeWM",record,sizeof(record));',
         '\tIOLockUnlock(c.lock);\n'+insertion+
         '\tIORegistryEntry::getRegistryRoot()->setProperty("N97FBPipeWM",record,sizeof(record));',
         "WM after unlocking")
     s=s[:wm_start]+frag+s[wm_next:]
+
+    # The upstream display13_dbuf_setup test extracts this one method
+    # into a tiny fixture. It has no HDMI2 controller/I2C/mode state.
+    # Exclude only the new experimental tail in that fixture, not in Kext.
+    dbuf_test=source/"tests/display13_dbuf_setup.py"
+    t=dbuf_test.read_text()
+    t=once(t,
+        "code = (r / 'tests/display13_dbuf_setup_fixture.cpp').read_text()",
+        "code = '#define WEX_HDMI2_DBUF_FIXTURE\\n' + (r / 'tests/display13_dbuf_setup_fixture.cpp').read_text()",
+        "isolated DBUF fixture only")
+    dbuf_test.write_text(t)
 
     # Only modify the native source register's HDMI-B activation write.
     # All other writes are passed through byte-for-byte.
