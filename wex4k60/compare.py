@@ -42,7 +42,54 @@ PREFIXES=("N97FBClock", "N97FBDBUF", "N97FBPipe",
 DISPLAY_FIELDS=("Resolution:", "Refresh Rate:", "UI Looks like:",
                 "Framebuffer Depth:", "Metal Support:", "Connection Type:")
 
+
+def decode_colorlive(raw):
+    """Decode the existing passive 236-byte WEXYogaHDMIColorLive IORegistry snapshot.
+
+    This is a GPU register snapshot only: it cannot prove sink SCDC, TMDS
+    link training, or physical video output. Never infer missing flags as zero.
+    """
+    m=re.fullmatch(r"<([0-9a-fA-F]+)>",raw.strip())
+    if not m:
+        return "colortrace-unparseable (not a raw OSData hex payload)"
+    try:
+        b=bytes.fromhex(m.group(1))
+    except ValueError:
+        return "colortrace-invalid-hex"
+    if len(b)!=59*4:
+        return "colortrace-unexpected-length=%d (expected 236)"%len(b)
+    w=[int.from_bytes(b[i:i+4],"little") for i in range(0,len(b),4)]
+    schema,valid=w[0],w[1]
+    if schema!=1:
+        return "colortrace-unrecognized-schema=%d"%schema
+    if valid!=1:
+        return "colortrace-not-valid (status=%d; no register inference)"%valid
+    mask,powered=w[6],w[7]
+    matches=[]
+    for i in range(3):
+        p=w[8+17*i:8+17*(i+1)]
+        idx=p[0]
+        if idx>2 or not (mask & (1<<idx)):
+            continue
+        func=p[2]
+        if func==0xffffffff:
+            matches.append("Pipe%d FUNC_CTL=unavailable"%idx)
+            continue
+        matches.append(
+            "Pipe%d FUNC_CTL=0x%08X enable=%d highTMDS=%d scrambling=%d "
+            "HDCPselect=%d HDCPsignal=%d BPCfield=%d"%(
+                idx,func,(func>>31)&1,(func>>4)&1,func&1,
+                (func>>5)&1,(func>>9)&1,(func>>20)&7
+            )
+        )
+    if not matches:
+        return ("colortrace-valid HDMI-mask=0x%X powered-mask=0x%X "
+                "no readable HDMI-B pipe")%(mask,powered)
+    return "colortrace-valid "+"; ".join(matches)
+
 def format_registry(key, raw):
+    if key=="WEXYogaHDMIColorLive":
+        return decode_colorlive(raw)
     # The already-existing Display13 hook records a uint64_t[21] GMBUS
     # request/result at "N97FBGMBusLast". Decode it without reading DDC again.
     if key.startswith(("N97FBGMBusLast","N97FBGMBusFirst")):
@@ -126,6 +173,7 @@ def main():
     for x in snaps:
         print("\nCAPTURE:",x["capture"])
         print("Published HDMI600 status:",x["registry"].get("WEXYogaHDMI600Status","not recorded"))
+        print("HDMI-B source register:",x["registry"].get("WEXYogaHDMIColorLive","not recorded"))
         print("Physical OSD observation must be entered manually in USER_OBSERVATION.txt")
     compare(snaps[0],snaps[1])
     if len(snaps)==3:
