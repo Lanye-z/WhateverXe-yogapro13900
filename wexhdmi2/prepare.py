@@ -33,11 +33,16 @@ def main(source,graphics):
     shutil.copyfile(ROOT/"wexhdmi2/kern_display13_hdmi_caps.hpp",
                     source/"WhateverXe/kern_display13_hdmi_caps.hpp")
 
-    include='#include "kern_display13_color.hpp"'
-    # Injection at the start of the translation unit where the Display13
-    # definitions and Apple I2C structures are already visible.
-    s=once(s,include,include+'\n#include "kern_display13_hdmi_caps.hpp"\n'
-           '#include "kern_yoga_hdmi2_candidate.hpp"',"new helper include")
+    # Parser may be included at the normal header site. The runtime helper
+    # also refers to display13FBPower, so introduce it after that context
+    # has been defined, never at the first include in the TU.
+    s=once(s,'#include "kern_display13_fb_irq.hpp"',
+           '#include "kern_display13_fb_irq.hpp"\\n#include "kern_display13_hdmi_caps.hpp"',
+           "CTA parser include")
+    s=once(s,'static Display13FBPowerContext display13FBPower;',
+           'static Display13FBPowerContext display13FBPower;\\n'
+           '#include "kern_yoga_hdmi2_candidate.hpp"',
+           "candidate runtime helper after Display13 power context")
     h=once(h,'    DVMTCalcFix modDVMTCalcFix;\n};',
        '    DVMTCalcFix modDVMTCalcFix;\n'
        '    // Yoga HDMI2 candidate: tail only, keep existing XE offsets.\n'
