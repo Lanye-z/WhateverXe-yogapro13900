@@ -112,6 +112,22 @@ void XE::yogaUSBCDPDiagSnapshot(void *controller,uint32_t *rec) {
  return ok;''',"nonblocking publish after lock")
     s=method(s,"bool XE::display13StopTranscoder(","\nbool XE::processDisplay13FramebufferSST(",stop)
     cpp.write_text(s)
+    # Production telemetry uses IOKit; native mock fixtures lack IOKit and
+    # must omit only this observational code via a test-only preprocessor flag.
+    mock=source/"tests/tgl_training_leases.py"
+    t=mock.read_text()
+    t=once(t,
+        'code = (repo / "tests/tgl_training_leases_fixture.cpp").read_text()',
+        'code = "#define WEX_DPDIAG_TEST_MOCK\n" + (repo / "tests/tgl_training_leases_fixture.cpp").read_text()',
+        "TGL training fixture guard")
+    mock.write_text(t)
+    mock=source/"tests/display13_training_frontend.py"
+    t=mock.read_text()
+    t=once(t,
+        "prefix='''#include <mutex>",
+        "prefix='''#define WEX_DPDIAG_TEST_MOCK\n#include <mutex>",
+        "Display13 production binding fixture guard")
+    mock.write_text(t)
     flags=source/"tests/fixtures/boot_argument_names.json"
     args=json.loads(flags.read_text());flag="-wex-yoga-usbc-dpdiag"
     if flag in args:raise RuntimeError("duplicate boot flag")
