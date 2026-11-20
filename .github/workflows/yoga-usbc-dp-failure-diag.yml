@@ -1,0 +1,115 @@
+name: Yoga 0.8.3 A7A0 USB-C DP DDI5 Failure Diagnostic (NO NEW HOOKS)
+on:
+  push:
+    branches: [experiment/wex-0.8.3-yoga-usbc-dp-failure-diag]
+    paths: ['wexdpdiag/**', '.github/workflows/yoga-usbc-dp-failure-diag.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-15-intel
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: b00t0x/WhateverXe
+          ref: f26a36880c49ea1063393d943527808c0f38feca
+          path: Source
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: b00t0x/WhateverXe-Graphics
+          ref: cf0a21841d0464dd0b0e9c5b1db28d47137a6832
+          path: Graphics
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: acidanthera/MacKernelSDK
+          ref: 05094e5e88cec7caedbfb35e8449ed0db94bf95b
+          path: MacKernelSDK
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: acidanthera/Lilu
+          ref: 1.7.2
+          path: Lilu
+          persist-credentials: false
+      - name: Validate stable baseline, precise HDMI600 source overlay and read-only diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = x86_64
+          python3 -m py_compile wexdpdiag/prepare.py wex600/prepare_hdmi600_observe.py wex600/diagnose.py wexedid/prepare_edid_ab.py
+          bash -n wex600/collect.sh
+          clang++ -std=c++17 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+            -I e11 e11/tools/test_hdmi600.cpp -o /tmp/yoga_hdmi600_test
+          /tmp/yoga_hdmi600_test
+          clang++ -std=c++17 -O1 -Wall -Wextra -Werror \
+            -I wexedid wexedid/test_edid_ab.cpp -o /tmp/yoga_edid_deep8_test
+          /tmp/yoga_edid_deep8_test
+          clang++ -std=c++17 -O1 -Wall -Wextra -Werror \
+            -I wexrgb wexrgb/test_policy.cpp -o /tmp/yoga_color_policy_test
+          /tmp/yoga_color_policy_test
+          python3 wexdpdiag/prepare.py Source Graphics
+          test -f Source/WhateverXe/kern_yoga_hdmi_edid_ab.hpp
+          test -f Source/WhateverXe/kern_yoga_hdmi600.hpp
+          grep -Fq 'checkKernelArgument("-wex-yoga-hdmi-edid-deep8")' Source/WhateverXe/kern_xe.cpp
+          grep -Fq 'checkKernelArgument("-wex-yoga-hdmi600")' Source/WhateverXe/kern_xe.cpp
+          grep -Fq '"WEXYogaHDMIEDIDABApplied"' Source/WhateverXe/kern_xe.cpp
+          grep -Fq '"WEXYogaHDMI600Status"' Source/WhateverXe/kern_xe.cpp
+          ! grep -Fq 'checkKernelArgument("-wex-yoga-hdmi4k60")' Source/WhateverXe/kern_xe.cpp
+          grep -Fq 'checkKernelArgument("-wex-yoga-usbc-dpdiag")' Source/WhateverXe/kern_xe.cpp
+          grep -Fq '"WEXYogaUSBCDPTrainingLast"' Source/WhateverXe/kern_xe.cpp
+          grep -Fq '"WEXYogaUSBCDPStopDetail"' Source/WhateverXe/kern_xe.cpp
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path("Source/WhateverXe/kern_xe.cpp").read_text()
+          assert s.count('WEXYogaUSBCDPTrainingLast')==1
+          assert s.count('WEXYogaUSBCDPStopDetail')==1
+          assert s.count('yogaUSBCDPDiagSnapshot(void *controller')==1
+          assert 'orgDisplay13HDMI2TMDS' not in s
+          assert 'WEXYogaHDMI2TMDSRouteStatus' not in s
+          assert '-wex-yoga-hdmi2-link' not in s
+          print("PASS DDI5-only opt-in, no additional route/HDMI2 interference")
+          PY
+          git -C Source diff --check
+          mkdir -p Source/Lilu.kext/Contents/Resources
+          ln -s "$GITHUB_WORKSPACE/Lilu/Lilu/Headers" Source/Lilu.kext/Contents/Resources/Headers
+          ln -s "$GITHUB_WORKSPACE/Lilu/Lilu/Library" Source/Lilu.kext/Contents/Resources/Library
+      - name: Original WhateverXe 0.8.3 regression suite
+        working-directory: Source
+        run: python3 tools/test.py
+      - name: Build RELEASE and verify Compat
+        shell: bash
+        working-directory: Source
+        run: |
+          set -euo pipefail
+          python3 tools/build.py --release --sdk "$GITHUB_WORKSPACE/MacKernelSDK" --output build/RELEASE
+          python3 tools/check_compat_version.py build/RELEASE
+      - name: Package independently recoverable Kext-only test
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEXT=Source/build/RELEASE/WhateverXe.kext
+          test -s "$KEXT/Contents/MacOS/WhateverXe"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$KEXT/Contents/Info.plist" | grep -qx '0.8.3'
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$KEXT/Contents/Info.plist" | grep -qx 'org.b00t0x.WhateverXe'
+          mkdir -p dist
+          ditto -c -k --keepParent "$KEXT" dist/WhateverXe_0.8.3_DEEP8_HDMI600_USBC_DPDIAG.zip
+          git -C Source diff -- WhateverXe tests/fixtures/boot_argument_names.json > dist/EXACT_PATCH.diff
+          cp wexdpdiag/README.md dist/README.md
+          cp wex600/collect.sh dist/collect.sh
+          cp wex600/diagnose.py dist/diagnose.py
+          cp Source/build/RELEASE/build-manifest.json dist/
+          (cd dist && shasum -a 256 WhateverXe*.zip > SHA256SUMS)
+          unzip -t dist/WhateverXe_0.8.3_DEEP8_HDMI600_USBC_DPDIAG.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Yoga-0.8.3-Stable-Deep8-HDMI600-USBC-DPDIAG
+          path: dist/*
+          retention-days: 30
+          if-no-files-found: error
