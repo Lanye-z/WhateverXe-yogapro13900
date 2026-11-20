@@ -26,6 +26,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          c++ -std=c++17 -Wall -Wextra -Werror -I wex4k60 wex4k60/test_hdmi2_8bpc_plan.cpp -o /tmp/yoga_hdmi2_plan_test
+          /tmp/yoga_hdmi2_plan_test
           python3 wex4k60/test_compare_colorlive.py
           python3 wex4k60/test_collect.py
           python3 wex4k60/test_native_macho_audit.py
