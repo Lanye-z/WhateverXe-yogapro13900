@@ -94,7 +94,7 @@ def parse_macho(data):
         if size < 8 or pos+size>limit:
             raise MachOError("bad load command size")
         if cmd == 0x1B and size >= 24:
-            code_uuid=str(uuid.UUID(bytes=data[pos+8:pos+24])).upper()
+            code_uuid=str(uuid.UUID(bytes=bytes(data[pos+8:pos+24]))).upper()
         elif cmd == 0x19 and size>=72:
             name,vmaddr,vmsize,fileoff,filesize,maxprot,initprot,nsects,sflags = \
                 struct.unpack_from("<16sQQQQiiII",data,pos+8)
