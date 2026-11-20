@@ -2,6 +2,35 @@
 
 **分析日期：2026-11-20。状态：仅源码与已上传 4K30 IORegistry 对照；未修改 EFI、Kext、雷电和 SST。尚未拿到本机 Apple Display13 驱动 Mach-O 的逐指令反汇编，本文中的原生偏移/结构体字段是“同 A7A0 参考实现的待验证假设”，不是经过本机反汇编确认的事实。**
 
+## 0. 原生驱动身份已由本机 4K30 日志确认；字节级检验工具已加入
+
+2026-11-20 17:26 的 `kmutil showloaded` 已明确列出：
+- `com.apple.driver.AppleIntelTGLGraphicsFramebuffer (16.0.0)`
+- 原生驱动 **UUID `B6078743-F795-3202-A55E-EA690FA40949`**
+- 其映射镜像大小在 `kmutil showloaded` 中为 `0xC8000`
+- 实际运行的 `org.b00t0x.WhateverXe 0.8.3`、`Lilu 1.7.3`
+- 系统：macOS Tahoe 26.7.1（`25G241`）
+
+**重要发现**：这个 UUID 与过去 `HDMI600` 静态研究和同 A7A0 参考实现使用的驱动 UUID 一致，因此参考的方法入口偏移具有实质核验价值。但仅凭加载 UUID 无法证明本机磁盘中的 Mach-O 与参考每个字节完全相同，更不代表安装任意 trampoline 安全。
+
+为弥补字节证据，分支已经增加 **`wex4k60/native_macho_audit.py`**：只读扫描本机 `/Library/Extensions/AppleIntelTGLGraphicsFramebuffer.kext/Contents/MacOS/AppleIntelTGLGraphicsFramebuffer`（或传入显式路径）。输出：
+- 设备内本机文件 SHA-256、Mach-O UUID，与当前加载 UUID 的比较；
+- 从 Mach-O `LC_SEGMENT_64` 文件映射转换参考 `image+0x...` 的字节偏移，不把镜像相对偏移误当文件偏移；
+- `getOnlineInfo(+0x2E232)`、`setColorMode(+0x491F2)`、`LightUpTMDS(+0x50B22)`、`hwDoI2CRequest(+0x53A20)`、`hwDoGMBusRequest(+0x53A7C)` 的入口 8 字节匹配情况及局部机器码；
+- 参考 `LightUpTMDS` return PC `image+0x4FFBB` 前的 direct CALL `E8 rel32` 与预期函数目标的匹配（若非 direct call，只标记无法由该检查确认，不武断认定调用错误）；
+- 若保留相关符号表，则额外报告这些方法的符号相对地址。
+
+运行（**只读、无需 sudo**）：
+
+```bash
+python3 wex4k60/native_macho_audit.py --out ~/Desktop/Yoga_Display13_NativeAudit.json
+```
+
+输出只包含目标函数的局部字节、UUID 与哈希，不拷贝整个 Apple 驱动。上传该 JSON 前仍应自行检查是否含不愿公开的数据。若自动定位失败，将本机实际二进制路径作为第一个位置参数，不应传 `WhateverXe.kext` 代替。
+
+脚本通过 Github Actions 的合成 Mach-O、CALL 目标/地址映射和越界检查；**这不是原生驱动验证通过**，只有实机 JSON 返回后才能对本机原生指令做结论。
+
+---
 ## 1. 研究证据和边界
 
 **用户本人成功基线：** `Yoga_HDMI4K60_hdmi30_20261120_172654.zip`。macOS 26.7.1、A7A0、1536MB/Metal，内屏在本次记录中为 **60Hz**，27B2 1080p75，AOC U27P10 3840×2160@30Hz。目标 HDMI U27P10 当前绑定 **Pipe 2**（不能按旧双屏实验假定固定 Pipe 1）；像素时钟 297MHz、`TRANS_DDI_FUNC_CTL=0x90030200`、`PIPE_MISC=0x01800810`、YCbCr444 8bpc。HDMI600 准入上限 600MHz；EDID VIC93–97 包含 4K24/25/30/50/60，HF-VSDB `D8 5D C4 01 78 80 00` 声明 SCDC Present 及 Max TMDS 600MHz。GMBUS 报告有成功读取 EDID `0xA0` 的操作，4K30 状态没有观察到 SCDC `0xA8`，后者是正常低速模式的合理现象，**不能推导 4K60 时没有 SCDC 事务**。SST DDI5 首次 MST 缓存 1→0、训练成功，已有三屏/热拔插实机验证，HDMI 研究不能碰该路径。
