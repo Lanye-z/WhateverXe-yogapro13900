@@ -58,12 +58,13 @@ void XE::yogaUSBCDPDiagSnapshot(void *controller,uint32_t *rec) {
 }
 '''
     s=once(s,"uint32_t XE::wrapTGLTraining(void *controller, void *request, void *output) {",
-       diagnostic+"\nuint32_t XE::wrapTGLTraining(void *controller, void *request, void *output) {",
+       "#ifndef WEX_DPDIAG_TEST_MOCK\n"+diagnostic+"\n#endif\nuint32_t XE::wrapTGLTraining(void *controller, void *request, void *output) {",
        "snapshot helper: no new hook")
     def training(x):
         return once(x,"\trecord[2] = r;",'''\trecord[2] = r;
     // Outside power/pool locks: publish conditions responsible for the
     // first NotReady vs later preflight Busy. No influence on the result.
+#ifndef WEX_DPDIAG_TEST_MOCK
     if(callbackXE->yogaUSBCDPDiagEnabled && id==6) {
         uint32_t diag[24] {};
         yogaUSBCDPDiagSnapshot(controller,diag);
@@ -75,7 +76,8 @@ void XE::yogaUSBCDPDiagSnapshot(void *controller,uint32_t *rec) {
             char key[48];snprintf(key,sizeof(key),"WEXYogaUSBCDPTrainingFirst%u",record[0]);
             root->setProperty(key,diag,sizeof(diag));
         }
-    }''',"post-training diagnostics")
+    }
+#endif''',"post-training diagnostics")
     s=method(s,"uint32_t XE::wrapTGLTraining(","\nuint32_t XE::wrapTGLTrainingEnd(",training)
     def stop(x):
         x=once(x," IOLockLock(c.lock);auto p=display13SSTPort(port);Display13FBPowerIO power{c.map};bool ok=false;",
