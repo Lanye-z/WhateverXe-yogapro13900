@@ -2,6 +2,7 @@
 """Offline, read-only comparison of Yoga chassis-HDMI 4K30 vs 4K60 captures.
 
 Usage:
+  python3 wex4k60/compare.py hdmi30.zip
   python3 wex4k60/compare.py hdmi30.zip hdmi60black.zip [hdmi_recovered.zip]
 or pass the unzipped capture directories.
 
@@ -166,8 +167,8 @@ def compare(left,right):
             print("WARNING: boot-argument mismatch:",arg,a,b)
 
 def main():
-    if len(sys.argv) not in (3,4):
-        raise SystemExit("usage: python3 wex4k60/compare.py <hdmi30.zip> <hdmi60black.zip> [recovered.zip]")
+    if len(sys.argv) not in (2,3,4):
+        raise SystemExit("usage: python3 wex4k60/compare.py <hdmi30.zip> [hdmi60black.zip] [recovered.zip]")
     snaps=[snapshot(name) for name in sys.argv[1:]]
     print("Yoga A7A0 native HDMI passive comparison")
     for x in snaps:
@@ -175,7 +176,10 @@ def main():
         print("Published HDMI600 status:",x["registry"].get("WEXYogaHDMI600Status","not recorded"))
         print("HDMI-B source register:",x["registry"].get("WEXYogaHDMIColorLive","not recorded"))
         print("Physical OSD observation must be entered manually in USER_OBSERVATION.txt")
-    compare(snaps[0],snaps[1])
+    if len(snaps)==1:
+        print("Single capture only: decoded source snapshot, no A/B comparison.")
+    else:
+        compare(snaps[0],snaps[1])
     if len(snaps)==3:
         compare(snaps[1],snaps[2])
     print("\nCAUTION: no live SCDC read/write confirmation is present in this capture method.")
