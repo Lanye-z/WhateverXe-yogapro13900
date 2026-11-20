@@ -84,9 +84,6 @@ jobs:
           mkdir -p Source/Lilu.kext/Contents/Resources
           ln -s "$GITHUB_WORKSPACE/Lilu/Lilu/Headers" Source/Lilu.kext/Contents/Resources/Headers
           ln -s "$GITHUB_WORKSPACE/Lilu/Lilu/Library" Source/Lilu.kext/Contents/Resources/Library
-      - name: Original WhateverXe 0.8.3 regression suite
-        working-directory: Source
-        run: python3 tools/test.py
       - name: Build RELEASE and verify Compat
         shell: bash
         working-directory: Source
@@ -94,6 +91,9 @@ jobs:
           set -euo pipefail
           python3 tools/build.py --release --sdk "$GITHUB_WORKSPACE/MacKernelSDK" --output build/RELEASE
           python3 tools/check_compat_version.py build/RELEASE
+      - name: Original WhateverXe 0.8.3 regression suite
+        working-directory: Source
+        run: python3 tools/test.py
       - name: Package independently recoverable Kext-only test
         shell: bash
         run: |
