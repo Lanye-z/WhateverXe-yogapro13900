@@ -28,7 +28,20 @@ def read(capture, filename):
             if len(names)==1:
                 return z.read(names[0]).decode("utf-8",errors="replace")
         return ""
-    raise ValueError("Capture must be a folder or ZIP: "+str(p))
+    if not p.exists():
+        candidates=[]
+        for folder in (Path.home()/"Desktop",Path.home()/"Downloads"):
+            if folder.is_dir():
+                candidates.extend(str(x) for x in folder.glob("*hdmi30*.zip"))
+                candidates.extend(str(x) for x in folder.glob("*HDMI30*.zip"))
+        hints="; ".join(dict.fromkeys(candidates[:8]))
+        raise FileNotFoundError(
+            "Capture path does not exist: "+str(p)+
+            ("\\nFound possible local capture(s): "+hints if hints else
+             "\\nFind the actual file using: find ~/Desktop ~/Downloads -maxdepth 4 -iname '*hdmi30*.zip' -print"+
+             "\\nOr capture a new normal 4K30 baseline: bash wex4k60/collect.sh hdmi30")
+        )
+    raise ValueError("Capture exists but is not a directory or a readable ZIP: "+str(p))
 
 KEYS=(
   "WEXYogaHDMI600Status","WEXYogaHDMI600Ready",
