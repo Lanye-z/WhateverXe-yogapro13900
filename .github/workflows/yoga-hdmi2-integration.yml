@@ -114,9 +114,9 @@ jobs:
           git -C Source diff -- WhateverXe tests/fixtures/boot_argument_names.json > dist/EXACT_PATCH.diff
           grep -Fq -- '-wex-yoga-hdmi2-safe' dist/EXACT_PATCH.diff
           grep -Fq -- '-wex-yoga-hdmi2-observe' dist/EXACT_PATCH.diff
-          strings "$KEXT/Contents/MacOS/WhateverXe" | grep -Fq -- '-wex-yoga-hdmi2-safe'
-          strings "$KEXT/Contents/MacOS/WhateverXe" | grep -Fq -- '-wex-yoga-hdmi2-observe'
-          strings "$KEXT/Contents/MacOS/WhateverXe" | grep -Fq -- 'WEXYogaHDMI2SourceLast'
+          strings "$KEXT/Contents/MacOS/WhateverXe" | grep -F -- '-wex-yoga-hdmi2-safe' > /dev/null
+          strings "$KEXT/Contents/MacOS/WhateverXe" | grep -F -- '-wex-yoga-hdmi2-observe' > /dev/null
+          strings "$KEXT/Contents/MacOS/WhateverXe" | grep -F -- 'WEXYogaHDMI2SourceLast' > /dev/null
           cp wexhdmi2/README.md dist/README.md
           cp wex4k60/compare.py dist/compare.py
           cp wex4k60/collect.sh dist/collect.sh
