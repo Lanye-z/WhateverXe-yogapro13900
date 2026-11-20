@@ -1,3 +1,20 @@
+# Yoga A7A0 HDMI 4K60 独立研究分支（2026-11-20）
+
+**本分支从已实机验证的 SST 成功版本派生。当前仅增加只读取证脚本、分析工具和文档，不修改 WhateverXe Kext 源码或用户 EFI。**
+
+已实机确认：HP G4 USB-C 兼容模式下，通过 `-wex-yoga-tc5-sst` 恢复三屏和热拔插。AOC U27P10 4K 屏接拓展坞 DP 只有 4K30 选项；改接机身 HDMI 时出现 4K60 选项但无实际画面。**这不是 SST 再次故障，也不是单靠 HDMI600 准入就能宣称修复的 HDMI2 链路。**
+
+当前计划按以下顺序处理：**4K30 正常对照与已有失败日志 → 模式/像素时钟/色彩格式与相关状态比对 → SCDC、源端 TMDS、原生 HDMI 函数及失败回滚定位 → 最小、默认关闭的独立 Kext 实验**。严禁移植曾导致核显加速丢失的旧 HDMI2 Route Hook；仍需保持内屏 120Hz、Metal、HDMI Deep8、SST 三屏和热拔插。
+
+- [本分支完整方案及安全采集命令](wex4k60/README.md)
+- [只读 HDMI4K30 / 黑屏4K60 采集脚本](wex4k60/collect.sh)
+- [两组状态离线对照程序](wex4k60/compare.py)
+- [已有 SST 成功机制与测试结果](wexsst/README.md)
+
+---
+
+## 以下为沿用的 SST/HDMI Deep8 历史说明
+
 # 当前分支状态（2026-11-20）：Yoga 0.8.3 SST 三屏实机成功
 
 **此分支已由用户实机验证**：在 HP Thunderbolt G4 拓展坞的 USB-C DP Alt Mode 兼容模式下，加上 `-wex-yoga-tc5-sst` 可以恢复拓展坞外屏；内屏、机身 HDMI、拓展坞形成三个独立画面，拓展坞热拔插也正常。**这是 SST 单流输出，不是拓展坞多路独立 MST。**
