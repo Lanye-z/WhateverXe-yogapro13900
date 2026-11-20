@@ -1,3 +1,15 @@
+# 当前分支状态（2026-11-20）：Yoga 0.8.3 SST 三屏实机成功
+
+**此分支已由用户实机验证**：在 HP Thunderbolt G4 拓展坞的 USB-C DP Alt Mode 兼容模式下，加上 `-wex-yoga-tc5-sst` 可以恢复拓展坞外屏；内屏、机身 HDMI、拓展坞形成三个独立画面，拓展坞热拔插也正常。**这是 SST 单流输出，不是拓展坞多路独立 MST。**
+
+**冻结目前成功的 0.8.3 + eDP 120Hz WM_ONLY + HDMI Deep8/HDMI600 + DDI5 SST 配置。** 4K 屏接拓展坞 DP 仅显示 4K30 选项；同一 4K 屏接机身 HDMI 有 60Hz 选项但黑屏。二者分别研究：前者先核实 2-lane HBR2、EDID 和模式枚举；后者先研究 HDMI600 之后缺失的 SCDC/高速 TMDS/源端控制及失败恢复。不能为了 4K60 重新启用曾造成 22MB/核显加速丢失的 HDMI2 Route 实验。
+
+- **当前可用修复与回退详情**：[wexsst/README.md](wexsst/README.md)
+- **旧 HDMI600 模式准入与安全采集工具**：[wex600/README.md](wex600/README.md)
+- **此前 HDMI 深色修复的历史技术说明**：见下文（是旧阶段记录，不代表本分支最终全部功能）
+
+---
+
 # Lenovo Yoga Pro 14s IRH8（82Y7）— HDMI 伪色修复实机验证分支
 
 **状态：AOC U27P10 经机身 HDMI 连接时，4K 30Hz 伪色已在本机实测修复（2026-11-19）。**
