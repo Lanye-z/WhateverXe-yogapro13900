@@ -120,7 +120,7 @@ void XE::yogaUSBCDPDiagSnapshot(void *controller,uint32_t *rec) {
     t=mock.read_text()
     t=once(t,
         'code = (repo / "tests/tgl_training_leases_fixture.cpp").read_text()',
-        'code = "#define WEX_DPDIAG_TEST_MOCK\n" + (repo / "tests/tgl_training_leases_fixture.cpp").read_text()',
+        'code = "#define WEX_DPDIAG_TEST_MOCK\\n" + (repo / "tests/tgl_training_leases_fixture.cpp").read_text()',
         "TGL training fixture guard")
     mock.write_text(t)
     mock=source/"tests/display13_training_frontend.py"
