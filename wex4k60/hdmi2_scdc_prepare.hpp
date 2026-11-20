@@ -106,7 +106,8 @@ SCDCTransaction prepareSCDC(IO &io,const Plan &plan,bool sinkSCDCPresent) {
 // NOT receive rollback writes. No source-register action is performed here.
 template<class IO>
 bool restoreSCDC(IO &io,const SCDCTransaction &s) {
-    if(!s.complete || !s.sinkPresent || !s.changed)return true;
+    if(!s.complete)return false;
+    if(!s.sinkPresent || !s.changed)return true;
     if(!io.connected() || io.generation()!=s.connectionGeneration)return false;
     uint8_t actual=0;
     return io.write(0x20,s.before) && io.connected() &&
