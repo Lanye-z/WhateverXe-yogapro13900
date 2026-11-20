@@ -69,7 +69,7 @@ void XE::yogaUSBCDPDiagSnapshot(void *controller,uint32_t *rec) {
 #ifndef WEX_DPDIAG_TEST_MOCK
     if(callbackXE->yogaUSBCDPDiagEnabled && id==6) {
         uint32_t diag[24] {};
-        yogaUSBCDPDiagSnapshot(controller,diag);
+        callbackXE->yogaUSBCDPDiagSnapshot(controller,diag);
         diag[20]=record[0];diag[21]=r;
         diag[22]=selected!=nullptr;diag[23]=leaseError;
         auto root=IORegistryEntry::getRegistryRoot();
