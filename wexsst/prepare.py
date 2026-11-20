@@ -57,22 +57,22 @@ uint64_t XE::wrapDisplay13DPCDInfo(void *raw) {
 '''
 
 INSTALL = r'''
-    // Separate from Thunderbolt/USB4 and all HDMI/eDP hooks. The optional
-    // route is installed only on a fully-qualified Yoga A7A0 Type-C DDI5.
+    // Separate from Thunderbolt/USB4 and all HDMI/eDP hooks. Install no
+    // new route and publish no extra IORegistry data without user opt-in.
     {
         const bool requested=checkKernelArgument("-wex-yoga-tc5-sst");
         const bool observe=checkKernelArgument("-wex-yoga-tc5-sst-observe");
+        const bool conflict=requested && observe;
         const bool eligible=xeProfile.identity==0xA7A08086U &&
             adlpDisplaySelected && display13FramebufferRequested &&
             (adlnOutputWiring.typeC&(1U<<5)) &&
             (adlnOutputWiring.links()&(1U<<5)) &&
             currentFramebuffer && currentFramebuffer->loadIndex==index;
-        yogaSSTMaskRequested=requested && eligible;
+        yogaSSTMaskRequested=requested && !observe && eligible;
         yogaSSTHookReady=false;
-        uint32_t status=0; // off=0, gated=1, mismatch=2, route failed=3, ready=4
         if(requested || observe) {
-            status=1;
-            if(eligible) {
+            uint32_t status=conflict?5:1; // gated=1,mismatch=2,route=3,ready=4,conflict=5
+            if(!conflict && eligible) {
                 const char *sym="__ZN14AppleIntelPort11getDPCDInfoEv";
                 const uint8_t prologue[]={0x55,0x48,0x89,0xE5,0x41,0x57,0x41,0x56};
                 const auto fn=patcher.solveSymbol<mach_vm_address_t>(index,sym,address,size);
@@ -86,12 +86,12 @@ INSTALL = r'''
                     status=yogaSSTHookReady?4:3;
                 }
             }
+            auto root=IORegistryEntry::getRegistryRoot();
+            root->setProperty("WEXYogaSSTRequested",requested);
+            root->setProperty("WEXYogaSSTObserveRequested",observe);
+            root->setProperty("WEXYogaSSTHookReady",yogaSSTHookReady);
+            root->setProperty("WEXYogaSSTHookStatus",status,32);
         }
-        auto root=IORegistryEntry::getRegistryRoot();
-        root->setProperty("WEXYogaSSTRequested",requested);
-        root->setProperty("WEXYogaSSTObserveRequested",observe);
-        root->setProperty("WEXYogaSSTHookReady",yogaSSTHookReady);
-        root->setProperty("WEXYogaSSTHookStatus",status,32);
     }
 '''
 
@@ -111,13 +111,20 @@ def prepare(source: Path, graphics: Path):
     if "wrapDisplay13DPCDInfo" in h or "wrapDisplay13DPCDInfo" in s:
         raise RuntimeError("DPCD SST wrapper already present")
     header_anchor=" bool display13FBSSTHooksReady {};"
-    header_fields=(
-        "\n bool yogaSSTMaskRequested {false};"
-        "\n bool yogaSSTHookReady {false};"
-        "\n static uint64_t wrapDisplay13DPCDInfo(void *);"
-        "\n mach_vm_address_t orgDisplay13DPCDInfo {};"
+    # Keep the original XE object layout as a prefix: append all new
+    # instance fields at the end, adding only a static method near the TC API.
+    header_fields="\n static uint64_t wrapDisplay13DPCDInfo(void *);"
+    end_anchor="    DVMTCalcFix modDVMTCalcFix;\n};"
+    tail_fields=(
+        "\n    // Yoga DDI5 SST: new fields at tail, original member offsets unchanged."
+        "\n    bool yogaSSTMaskRequested {false};"
+        "\n    bool yogaSSTHookReady {false};"
+        "\n    mach_vm_address_t orgDisplay13DPCDInfo {};"
     )
-    h2=replace_once(h,header_anchor,header_anchor+header_fields,"header members")
+    h2=replace_once(h,header_anchor,header_anchor+header_fields,"static function declaration")
+    h2=replace_once(h2,end_anchor,
+        "    DVMTCalcFix modDVMTCalcFix;"+tail_fields+"\n};",
+        "append fields at class tail")
 
     wrapper_anchor="bool XE::processDisplay13FramebufferTC("
     s2=replace_once(s,wrapper_anchor,WRAPPER+"\n"+wrapper_anchor,"TC wrapper insertion")
@@ -130,8 +137,9 @@ def prepare(source: Path, graphics: Path):
     if s3.replace(installer+installer_anchor,installer_anchor).replace(
             WRAPPER+"\n"+wrapper_anchor,wrapper_anchor)!=s:
         raise RuntimeError("Unexpected mutations outside DPCD wrapper and TC registration")
-    if h2.replace(header_anchor+header_fields,header_anchor)!=h:
-        raise RuntimeError("Unexpected mutations outside new header members")
+    if h2.replace("    DVMTCalcFix modDVMTCalcFix;"+tail_fields+"\n};",
+                  end_anchor).replace(header_anchor+header_fields,header_anchor)!=h:
+        raise RuntimeError("Unexpected mutations outside additive XE tail and declaration")
 
     hpp.write_text(h2)
     cpp.write_text(s3)
