@@ -1,6 +1,14 @@
 # Yoga A7A0｜机身 HDMI 2.0 / 4K60 初始化阶段静态分析
 
-**分析日期：2026-11-20。状态：仅源码与已上传 4K30 IORegistry 对照；未修改 EFI、Kext、雷电和 SST。尚未拿到本机 Apple Display13 驱动 Mach-O 的逐指令反汇编，本文中的原生偏移/结构体字段是“同 A7A0 参考实现的待验证假设”，不是经过本机反汇编确认的事实。**
+**分析日期：2026-11-20。更新状态：用户已上传本机原生 Apple Display13 Mach-O 局部机器码核验 JSON，5 个方法符号/入口前缀及一条真实 TMDS 调用边均已确认。`DisplayPath+0x12C` 等结构体字段、完整调用 ABI、SCDC 事务、源端硬件控制和安全 Hook 行为仍未实证。未修改 EFI、Kext、雷电和 SST。**
+
+## 0A. 本机机器码核验已完成的部分（不是实机 4K60 修复）
+
+2026-11-20 本机脚本已执行并产生 `Yoga_Display13_NativeAudit.json`，见 [独立静态分析报告](NATIVE_DISPLAY13_AUDIT_RESULT_20261120.md)。真实 SHA `115a4616e862228a8c82df6e52ba41ac02b9750f116352ff3575aadcc950888e`；Mach-O UUID 与此前加载的驱动 UUID 匹配。5 个目标原生方法在本机符号表中都能确认入口，8 字节 prologue 完全匹配；本机实际直接调用 `image+0x4FFB6 → LightUpTMDS image+0x50B22`，返回地址为 `image+0x4FFBB`。
+
+**对下文历史“待确认”栏的更正**：`+0x50B22` 入口、`+0x4FFBB` 返回地址与这一条 CALL 边**已确认**；仍未确认它是否为唯一调用者、完整参数/锁与返回行为，`DisplayPath+0x12C` 是否就是源端 Shadow，或 Apple 原生驱动是否已经实现 SCDC 写入。下一步使用只读 `native_macho_deep.py` 抓取局部方法字节再做数据流分析，绝不直接复用导致 GPU 加速丢失的旧独立 TMDS Hook。
+
+---
 
 ## 0. 原生驱动身份已由本机 4K30 日志确认；字节级检验工具已加入
 
