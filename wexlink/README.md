@@ -1,5 +1,14 @@
 # Yoga Pro 14s IRH8 · HDMI2 高速链路独立实验（默认关闭）
 
+## 2026-11-20 后续状态和安全限制
+
+用户在 **新的独立 SST 分支** `experiment/wex-0.8.3-yoga-usbc-sst-compat` 中，启用 `-wex-yoga-tc5-sst`，实机恢复了 HP G4 拓展坞单流显示、三屏独立桌面以及热拔插。因此本早期 HDMI2 高速链路方案 **不是**当前日常使用基线，也不应直接把本分支的 SCDC/LightUpTMDS Hook 合入 SST。
+
+同日进一步确认，4K 屏接机身 HDMI 虽可列出 60Hz，实际黑屏。之前 `experiment/wex-0.8.3-yoga-hdmi2-route-diag` 的独立 TMDS 路由实验，仅启用观察参数即曾发生 22MB/核显加速丢失；该技术路径必须回避，不能仅因本分支的 CI 编译通过而实机安装。当前以 SST 实测成功版本为基线，只先进行无驱动修改的 HDMI 4K30/60 对照采集；查明实际 SCDC、GMBUS、颜色格式与时钟状态后，再考虑新的最小风险代码。此前 `-wex-yoga-hdmi2-link` 不适合直接启用。
+
+---
+
+
 **基线：Actions 44520992061 / a508938a 的 WM_ONLY + U27P10 Deep8 + HDMI600。原 main 和经过实机验证的分支均未修改。**
 
 ## 为什么必须重做
