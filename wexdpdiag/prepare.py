@@ -37,8 +37,10 @@ void XE::yogaUSBCDPDiagSnapshot(void *controller,uint32_t *rec) {
     auto s=callbackXE;auto &c=display13FBPower;
     rec[0]=1;rec[1]=5;
     if(!s->yogaUSBCDPDiagEnabled || !c.lock || !s->tglPortByDDI)return;
-    IOLockLock(c.lock);
+    // Preserve the original port lookup -> Display13 lock order; do NOT
+    // invoke the native port lookup while holding the Display13 IOLock.
     auto p=static_cast<OSObject *>(reinterpret_cast<void *(*)(uint32_t)>(s->tglPortByDDI)(5));
+    IOLockLock(c.lock);
     const bool valid=p && p->getMetaClass()->getClassSize()>=0x624;
     auto cfg=valid ? Display13FBMemory::field<uint32_t *>(p,0x548) : nullptr;
     rec[2]=controller==c.controller;
