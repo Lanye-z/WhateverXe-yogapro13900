@@ -1,3 +1,11 @@
+# ⛔ STOP：该版本已在 Yoga 82Y7 实机出现严重回归，禁止继续使用
+
+**2026-11-20 实机反馈：仅启用 `-wex-yoga-hdmi2-route-only`，首次重启后核显硬件加速丢失、机身 HDMI 外屏无法点亮。尚无原始故障 IORegistry，不能确认是路由地址、调用 ABI、重入还是显示初始化失败。此分支只保留用于复盘，绝非可用的诊断/4K60 修复包。**
+
+立即恢复已验证的 `44520992061` Deep8 + HDMI600 构建中的原始 `WhateverXe.kext`，并从 boot-args 删除 `-wex-yoga-hdmi2-route-only` 和 `-wex-yoga-hdmi2-link`。单独删除参数不足以保证恢复，应一并还原 Kext。不要再尝试 60Hz 或直接替换此分支的任何后续构建。
+
+---
+
 # Yoga Pro 14s IRH8｜Display13 HDMI2 原生 TMDS 精确路由诊断版
 
 **这是实验 Kext，不是已经修复 4K60 的稳定版本。请保留可独立启动的成功 EFI；不要直接覆盖日常 EFI。**
