@@ -8,6 +8,7 @@ or pass the unzipped capture directories.
 Does not access hardware, change display settings or infer physical output
 from macOS logical resolution. Unknown/missing properties are not assumed false.
 """
+import hashlib
 import re
 import sys
 import zipfile
@@ -41,6 +42,25 @@ PREFIXES=("N97FBClock", "N97FBDBUF", "N97FBPipe",
 DISPLAY_FIELDS=("Resolution:", "Refresh Rate:", "UI Looks like:",
                 "Framebuffer Depth:", "Metal Support:", "Connection Type:")
 
+def format_registry(key, raw):
+    # The already-existing Display13 hook records a uint64_t[21] GMBUS
+    # request/result at "N97FBGMBusLast". Decode it without reading DDC again.
+    if key.startswith(("N97FBGMBusLast","N97FBGMBusFirst")):
+        match=re.fullmatch(r"<([0-9a-fA-F]+)>", raw)
+        if match:
+            payload=bytes.fromhex(match.group(1))
+            if len(payload)==21*8:
+                v=[int.from_bytes(payload[i:i+8],"little") for i in range(0,len(payload),8)]
+                return ("schema=%u seq=%u bus=%u speed=%u req@0x28=%u "
+                        "req@0x38=%u native=0x%08X request=0x%08X "
+                        "samples=%u error=%u")%(
+                            v[0],v[1],v[2],v[3],v[6],v[7],
+                            v[8]&0xffffffff,v[9]&0xffffffff,v[15],v[16])
+    if len(raw)>120:
+        digest=hashlib.sha256(raw.encode()).hexdigest()[:12]
+        return raw[:90]+"... [sha256:"+digest+"]"
+    return raw
+
 def registry_values(txt):
     result={}
     for line in txt.splitlines():
@@ -50,10 +70,7 @@ def registry_values(txt):
         key,value=m.groups()
         if key not in KEYS and not any(key.startswith(p) for p in PREFIXES):
             continue
-        val=value.strip()
-        # IORegistry embeds bytes for some properties; keep the report bounded.
-        if len(val)>120:
-            val=val[:117]+"..."
+        val=format_registry(key,value.strip())
         result.setdefault(key,[])
         if val not in result[key]:
             result[key].append(val)
