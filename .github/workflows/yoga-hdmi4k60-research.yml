@@ -1,0 +1,36 @@
+name: Yoga HDMI4K60 SST-baseline read-only research tools
+on:
+  push:
+    branches: [experiment/wex-0.8.3-yoga-hdmi4k60-sst-base]
+    paths:
+      - 'wex4k60/**'
+      - 'README.md'
+      - '.github/workflows/yoga-hdmi4k60-research.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  safe-readonly-tools:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Shell and Python syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n wex4k60/collect.sh
+          python3 -m py_compile wex4k60/compare.py wex4k60/test_collect.py
+      - name: Fixture A/B comparisons and forbidden mutation guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 wex4k60/test_collect.py
+      - name: Verify this phase does not ship a replacement Kext
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e wex4k60/prepare.py
+          test ! -e wex4k60/WhateverXe.kext
+          echo "PASS: evidence tools only; installed SST WhateverXe stays unchanged"
