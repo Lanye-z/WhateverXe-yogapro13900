@@ -32,6 +32,30 @@ Linux i915 的成熟参考实现将 sink SCDC 状态、高 TMDS 比率和 Source
 - https://github.com/b00t0x/WhateverXe/issues/41 （另一个 ADL-S 平台仅放宽 300MHz 已有实际成功；不适用于推断本机）
 - https://github.com/Lanye-z/WhateverXe-yogapro13900/blob/experiment/wex-0.8.3-yoga-hdmi2-route-diag/wexlink/ROUTE_DIAG_README.md （本机危险旧实验，**仅供复盘**）
 
+## 本机 Mach-O 首轮结果已确认：5/5 函数、真实 TMDS CALL
+
+用户已成功执行 `native_macho_audit.py` 并提供 `Yoga_Display13_NativeAudit.json`。实际 Apple 驱动 UUID **`B6078743-F795-3202-A55E-EA690FA40949`**、SHA-256 **`115a4616e862228a8c82df6e52ba41ac02b9750f116352ff3575aadcc950888e`**。`getOnlineInfo`、`setColorMode`、`LightUpTMDS`、`hwDoI2CRequest`、`hwDoGMBusRequest` **5/5 个真实符号入口、前 8 字节均符合此前 A7A0 参考**。
+
+更重要的是：本机 `image+0x4FFB6` 的指令 `E8 67 0B 00 00` 实际 `call 0x50B22`，也就是原生 `LightUpTMDS`；`image+0x4FFBB` 正是参考中写的 return PC。近邻指令按照 x86-64 ABI 传入 controller、framebuffer、display path 和 timing。**这只解决了入口和一条调用边，不能证明旧 TMDS Hook 安全，也不能证明 SCDC/源端控制已工作。**
+
+另一个值得查明的细节：在这条分支 `LightUpTMDS` 后的指令是 `jmp 0x4FFD9; xor r13d,r13d`，没有直接将 `EAX` 用作该分支的返回状态。要进一步跟踪父方法状态返回与失败回滚，不能凭此声称 macOS 已错误返回成功。
+
+[查看完整原生机器码实证和旧 Route 风险分析](NATIVE_DISPLAY13_AUDIT_RESULT_20261120.md)。
+
+### 下一个只读步骤：进一步定位源端控制字段
+
+为确认参考的 `DisplayPath+0x12C` 能否映射到本机 `TRANS_DDI_FUNC_CTL`，已经新增 `native_macho_deep.py`，严格检查当前 Apple 原生 Mach-O 的 **UUID 和 SHA-256 都完全匹配** 才进行导出。它仅从驱动文件提取少量有边界的函数及调用点机器码，不修改任何设备状态：
+
+```bash
+cd ~/Downloads/Yoga_HDMI4K60_Audit
+git pull --ff-only
+python3 wex4k60/native_macho_deep.py --out ~/Desktop/Yoga_Display13_NativeDeepTrace.json
+```
+
+仅需提供 `Yoga_Display13_NativeDeepTrace.json`，无需重新切换 4K60、运行旧 HDMI2 Route 或上传整个 Apple 二进制。若驱动 SHA/UUID 不匹配，脚本会拒绝执行，而不是错误应用参考偏移。
+
+---
+
 ## 下一轮只读验证：原生 Apple Mach-O（不用再次切 4K60）
 
 最新 4K30 日志的 `kmutil showloaded` 已确认当前加载的 Apple 显示驱动 UUID 为 **`B6078743-F795-3202-A55E-EA690FA40949`**，与旧 HDMI600 研究的 Apple donor UUID 一致。要进一步确认原生 TMDS/SCDC 函数和调用指令，现有分支增加了 `native_macho_audit.py`（Python 标准库、无需 sudo、不依赖额外安装包）：
