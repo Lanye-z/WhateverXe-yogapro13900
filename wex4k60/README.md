@@ -3,6 +3,22 @@
 > **2026-11-20 · 第一阶段：已建立安全的只读取证工具；尚未生成 HDMI2 修复 Kext。**
 > 此分支直接从已实机成功的 `experiment/wex-0.8.3-yoga-usbc-sst-compat` 派生，保持 HP G4 USB-C SST 三屏扩展和热拔插正常的源代码不变。当前无需更换 WhateverXe，更不能将旧 HDMI2 实验版替换到日常 EFI。
 
+## 最新状态（2026-11-20，第四轮）
+
+- 上传的 `Yoga_Display13_HDMI_HelperTrace.json` 已独立确认 `LightUpTMDS → 0x48BB6` 把 `[DisplayPath+0x12C]` 写入 `TRANS_DDI_FUNC_CTL(0x60400 + transcoderOffset)`。`0x4C67D–0x4C689` 也证实从硬件读回到相同缓存；`0x6973A–0x6974A` 证实另一路重新写入。详细见 [HelperTrace 第三轮](NATIVE_DISPLAY13_HELPERTRACE_ANALYSIS_20261120.md)。
+- 最新 `Yoga_Display13_DDI_Xrefs.json` 中 46 处匹配无截断；除其它结构/常量噪音，识别出原生 bit5（HDCP select）、bit9（HDCP signalling）等写入，但**没有由此证明 bit0 Scrambling、bit4 High TMDS 在 4K60 的真实值**。详细见 [第四轮数据流归类](NATIVE_DISPLAY13_DDI_XREFS_ANALYSIS_20261120.md)。
+- 现有 `WEXYogaHDMIColorLive` 本来就能只读提供 59 个 u32 的管线快照；无需再装旧 TMDS Hook。现在 `compare.py` 能解析 HDMI-B 具体 Pipe 的 `TRANS_DDI_FUNC_CTL` bit31/bit4/bit0，并支持**一份 4K30 采集包单独查看**：
+
+```bash
+cd ~/Downloads/Yoga_HDMI4K60_Audit
+git pull --ff-only
+python3 wex4k60/compare.py ~/Desktop/Yoga_HDMI4K60_hdmi30_20261120_172654.zip
+```
+
+只有在已有安全回退、且愿意进行受控失败对照时，才对比现有 `hdmi60black` 日志；无需为了测试解码器重新制造黑屏。**当前只读研究/诊断，未生成 HDMI2 修复 Kext；原成功 SST / Deep8 / HDMI600 不变。**
+
+---
+
 ## 当前可复现的事实
 
 | 接线与模式 | 已观察到的结果 | 解释范围 |
