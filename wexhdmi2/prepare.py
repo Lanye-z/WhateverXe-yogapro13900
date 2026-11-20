@@ -37,10 +37,10 @@ def main(source,graphics):
     # also refers to display13FBPower, so introduce it after that context
     # has been defined, never at the first include in the TU.
     s=once(s,'#include "kern_display13_fb_irq.hpp"',
-           '#include "kern_display13_fb_irq.hpp"\\n#include "kern_display13_hdmi_caps.hpp"',
+           '#include "kern_display13_fb_irq.hpp"\n#include "kern_display13_hdmi_caps.hpp"',
            "CTA parser include")
     s=once(s,'static Display13FBPowerContext display13FBPower;',
-           'static Display13FBPowerContext display13FBPower;\\n'
+           'static Display13FBPowerContext display13FBPower;\n'
            '#include "kern_yoga_hdmi2_candidate.hpp"',
            "candidate runtime helper after Display13 power context")
     h=once(h,'    DVMTCalcFix modDVMTCalcFix;\n};',
