@@ -3,6 +3,27 @@
 > **2026-11-20 · 第一阶段：已建立安全的只读取证工具；尚未生成 HDMI2 修复 Kext。**
 > 此分支直接从已实机成功的 `experiment/wex-0.8.3-yoga-usbc-sst-compat` 派生，保持 HP G4 USB-C SST 三屏扩展和热拔插正常的源代码不变。当前无需更换 WhateverXe，更不能将旧 HDMI2 实验版替换到日常 EFI。
 
+## 上游 HDMI 2.0 借鉴与安全的首版实现骨架（2026-11-20）
+
+已经直接核查 WhateverXe [Issue #82](https://github.com/b00t0x/WhateverXe/issues/82)、[Issue #41](https://github.com/b00t0x/WhateverXe/issues/41)、[Issue #155](https://github.com/b00t0x/WhateverXe/issues/155) 以及同 A7A0 机型的 [Air14 HDMI SCDC](https://github.com/Wtrwx/Lenovo-Air14-IRP8-Hackintosh/blob/main/sources/WhateverXe/WhateverXe/kern_display13_hdmi_scdc.hpp)。结论与精准移植门槛详见 [UPSTREAM_HDMI2_IMPLEMENTATIONS_20261120.md](UPSTREAM_HDMI2_IMPLEMENTATIONS_20261120.md)。
+
+本分支已新增 `hdmi2_8bpc_plan.hpp`（无副作用的 **纯计算** 源/接收端链接策略）与 `test_hdmi2_8bpc_plan.cpp`。它们测试 4K30 297MHz 保持不动，4K60 594MHz/24bpp/已验证 SCDC 需要 sink `0x20=0x03` + source `0x11`，无源端 SCDC 验证、色深不符、超出接收端速率、YCbCr420 均拒绝盲目配置；**尚未加入任何 live Hook/I²C/MMIO 写入，也不是 4K60 修复版**。CI 编译纯单元测试：
+
+```bash
+c++ -std=c++17 -Wall -Wextra -Werror -I wex4k60 wex4k60/test_hdmi2_8bpc_plan.cpp -o /tmp/yoga_hdmi2_plan_test
+/tmp/yoga_hdmi2_plan_test
+```
+
+历史 4K30 ZIP 如果找不到，先查实际文件位置，不要使用以前报告中的示例路径：
+
+```bash
+find "$HOME/Desktop" "$HOME/Downloads" -maxdepth 4 -type f -iname '*hdmi30*.zip' -print
+```
+
+找不到可在**已成功的 4K30** 下新采集 `bash wex4k60/collect.sh hdmi30`；不需要重新进入 4K60 黑屏状态来运行这个脚本。
+
+---
+
 ## 最新状态（2026-11-20，第四轮）
 
 - 上传的 `Yoga_Display13_HDMI_HelperTrace.json` 已独立确认 `LightUpTMDS → 0x48BB6` 把 `[DisplayPath+0x12C]` 写入 `TRANS_DDI_FUNC_CTL(0x60400 + transcoderOffset)`。`0x4C67D–0x4C689` 也证实从硬件读回到相同缓存；`0x6973A–0x6974A` 证实另一路重新写入。详细见 [HelperTrace 第三轮](NATIVE_DISPLAY13_HELPERTRACE_ANALYSIS_20261120.md)。
