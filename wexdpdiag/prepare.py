@@ -81,7 +81,10 @@ void XE::yogaUSBCDPDiagSnapshot(void *controller,uint32_t *rec) {
         x=once(x," IOLockLock(c.lock);auto p=display13SSTPort(port);Display13FBPowerIO power{c.map};bool ok=false;",
           ''' uint32_t stop[16] {};stop[0]=1;
  IOLockLock(c.lock);auto p=display13SSTPort(port);Display13FBPowerIO power{c.map};bool ok=false;
- stop[1]=p!=nullptr;stop[2]=bool(c.bridge.pipeHeld(power,pipe));stop[3]=pipe;''',"stop setup")
+ stop[1]=p!=nullptr;stop[3]=pipe;''',"stop setup")
+        x=once(x," if(p && c.bridge.pipeHeld(power,pipe)) {",
+          " if(p && c.bridge.pipeHeld(power,pipe)) {\\n  if(s->yogaUSBCDPDiagEnabled)stop[2]=1;",
+          "note power held without second power query")
         x=once(x,"  auto &deferred=display13DeferredClocks[pipe];",
           '''  auto &deferred=display13DeferredClocks[pipe];
   if(s->yogaUSBCDPDiagEnabled && ddi==5) {
