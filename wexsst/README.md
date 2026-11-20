@@ -27,9 +27,9 @@ Legacy reference: https://github.com/Thatisjigen/WhateverXe/blob/f7b9bf2229d323e
 
 | Added boot argument | Action |
 | --- | --- |
-| Neither new flag | No extra DPCD hook; established baseline |
+| Neither new flag | No extra DPCD hook or new IORegistry writes; established baseline |
 | -wex-yoga-tc5-sst-observe | Installs read-only DPCD observation hook; does not hide MST |
-| -wex-yoga-tc5-sst | Installs the hook and masks DDI5 cached MST capability |
+| -wex-yoga-tc5-sst | Installs the hook and masks DDI5 cached MST capability |\n| Both flags together | Refused (no new Hook, no masking), diagnostic status 5 |
 
 Keep all current boot arguments as-is (especially -wex-yoga-edp120-admit, -wex-yoga-edp120-wm, -wex-yoga-hdmi-edid-deep8, -wex-yoga-hdmi600 and -wex-yoga-usbc-dpdiag); add only one new flag for a test. Do not add the abandoned -wex-yoga-hdmi4k60 or -wex-yoga-hdmi2-link experiments.
 
@@ -37,11 +37,11 @@ Keep all current boot arguments as-is (especially -wex-yoga-edp120-admit, -wex-y
 
 - WEXYogaSSTRequested, WEXYogaSSTObserveRequested: requested boot mode.
 - WEXYogaSSTHookReady: whether the native DPCD route installed.
-- WEXYogaSSTHookStatus: 0=off; 1=platform/path gate rejected; 2=donor symbol/bytes mismatch; 3=route failed; 4=installed.
+- WEXYogaSSTHookStatus: 0=off; 1=platform/path gate rejected; 2=donor symbol/bytes mismatch; 3=route failed; 4=installed; 5=conflicting flags.
 - WEXYogaSSTFirstDPCD and WEXYogaSSTLastDPCD: little-endian uint32[9], indexed as version=1, qualified sequence number, DDI=5, MST cache before, MST cache after, native MST mode +0x117, low 32 bits of native result, did-mask flag, cumulative masks.
 - WEXYogaSSTCapabilityMasked: true after the first actually masked read.
 
-Only first eight qualified reads publish diagnostics. A missing value does not imply MST absence; the hook may never have executed.
+The additional XE runtime fields are appended at the end of the class so existing member offsets are preserved. Neither new flag means no extra Hook and no extra registry properties. Only first eight qualified reads publish diagnostics. A missing value does not imply MST absence; the hook may never have executed.
 
 For a successful boot, collect:
 
