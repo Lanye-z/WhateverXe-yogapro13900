@@ -2,7 +2,7 @@ name: Yoga DDI5 targeted native mock compilation
 on:
   push:
     branches: [experiment/wex-0.8.3-yoga-usbc-dp-failure-diag]
-    paths: ['.github/workflows/yoga-usbc-dpdiag-smoke.yml']
+    paths: ['wexdpdiag/prepare.py', '.github/workflows/yoga-usbc-dpdiag-smoke.yml']
 permissions:
   contents: read
 jobs:
@@ -24,6 +24,7 @@ jobs:
         run: python3 wexdpdiag/prepare.py Source Graphics
       - name: Compile and run exact TGL training fixture with explicit error output
         run: |
+          python3 -m py_compile Source/tests/tgl_training_leases.py Source/tests/display13_training_frontend.py
           python3 Source/tests/tgl_training_leases.py
       - name: Compile and run exact Display13 frontend fixture
         run: python3 Source/tests/display13_training_frontend.py
