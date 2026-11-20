@@ -32,6 +32,27 @@ Linux i915 的成熟参考实现将 sink SCDC 状态、高 TMDS 比率和 Source
 - https://github.com/b00t0x/WhateverXe/issues/41 （另一个 ADL-S 平台仅放宽 300MHz 已有实际成功；不适用于推断本机）
 - https://github.com/Lanye-z/WhateverXe-yogapro13900/blob/experiment/wex-0.8.3-yoga-hdmi2-route-diag/wexlink/ROUTE_DIAG_README.md （本机危险旧实验，**仅供复盘**）
 
+## 本机第 2 轮深度反汇编结果：已确认 Clock Select 与 MSA_MISC，继续追踪 0x60400
+
+用户上传的 `Yoga_Display13_NativeDeepTrace.json` 六段代码已离线反汇编（原生 UUID/SHA 与成功 4K30 基线精确相符）。主要结论：
+
+1. HDMI 的父方法分支 `[cfg+8] == 2` 实际调用 `LightUpTMDS 0x50B22`，这条调用分支不会传播 `EAX` 返回值；原生 `LightUpTMDS` 主函数在 `0x50BE9` 返回前**无条件 `xor eax,eax`**。因此系统模式设置返回成功不能证明 4K60 物理链路正常。
+2. `LightUpTMDS` 从 `DisplayPath+0x128` 取值写入 `TRANS_CLK_SEL = 0x46140 + 4*transcoderIndex`；它还调用 `0x6CCB4`、`0x65FD4`、`0x48BB6`、`0x52106` 等内部辅助函数。它的顶层指令**没有**直接访问 `+0x12C` 或直接写 `0x60400`；这两件事可能在被调用函数中实现。
+3. `setColorMode` 实际操作 `DisplayPath+0x134`，写入 `TRANS_MSA_MISC = 0x60410 + transcoderIndex*0x1000`，而不是 `TRANS_DDI_FUNC_CTL = 0x60400`。**不能把 MSA_MISC 的颜色位操作误认为 HDMI Scrambling 或 High TMDS Clock Ratio。**
+4. `hwDoI2CRequest` 根据 `controller+0x9C8` 是否存在，选择对象虚函数与另一原生实现 `0x53422`；仍未确认实际 SCDC `0xA8/0x20` 是否执行。
+
+本轮最应继续验证 **`DisplayPath+0x12C → TRANS_DDI_FUNC_CTL(0x60400)`**。已新增仅只读的 `native_macho_linktrace.py`，采集 `LightUpTMDS` 真正调用到的五个辅助函数代码，具备原生 UUID + SHA 双重拒绝条件：
+
+```bash
+cd ~/Downloads/Yoga_HDMI4K60_Audit
+git pull --ff-only
+python3 wex4k60/native_macho_linktrace.py --out ~/Desktop/Yoga_Display13_HDMI_HelperTrace.json
+```
+
+[本轮完整解码、精确寄存器与下一步研究边界](NATIVE_DISPLAY13_DEEPTRACE_ANALYSIS_20261120.md)
+
+---
+
 ## 本机 Mach-O 首轮结果已确认：5/5 函数、真实 TMDS CALL
 
 用户已成功执行 `native_macho_audit.py` 并提供 `Yoga_Display13_NativeAudit.json`。实际 Apple 驱动 UUID **`B6078743-F795-3202-A55E-EA690FA40949`**、SHA-256 **`115a4616e862228a8c82df6e52ba41ac02b9750f116352ff3575aadcc950888e`**。`getOnlineInfo`、`setColorMode`、`LightUpTMDS`、`hwDoI2CRequest`、`hwDoGMBusRequest` **5/5 个真实符号入口、前 8 字节均符合此前 A7A0 参考**。
