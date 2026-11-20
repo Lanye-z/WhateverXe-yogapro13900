@@ -3,6 +3,16 @@
 > **2026-11-20 · 第一阶段：已建立安全的只读取证工具；尚未生成 HDMI2 修复 Kext。**
 > 此分支直接从已实机成功的 `experiment/wex-0.8.3-yoga-usbc-sst-compat` 派生，保持 HP G4 USB-C SST 三屏扩展和热拔插正常的源代码不变。当前无需更换 WhateverXe，更不能将旧 HDMI2 实验版替换到日常 EFI。
 
+## 20:19 新 4K30 基线与 SCDC Mock（2026-11-20）
+
+- 最新用户采集 `Yoga_HDMI4K60_hdmi30_20261120_201932.zip` 的脱敏逐项分析见 [BASELINE_20261120_201932_HDMI30.md](BASELINE_20261120_201932_HDMI30.md)。
+- 实际三路像素时钟 **775.69/148.50/297MHz**；机身 HDMI Pipe2 `TRANS_DDI_FUNC_CTL=0x90030200`，低速 4K30 bit0/4 均为 0 是正常的，不能据此断言 4K60 的高速配置缺失。
+- GMBUS 请求序列至 #31，只有 First1..16 和 Last 有记录；其中 First1..16 可确认 EDID 0xA0 读取，**中间 #17..30 未保存**，不能声称不存在 SCDC 0xA8。现在 `compare.py` 可显示 GMBUS `sendAddress`。
+- 新增 [hdmi2_scdc_prepare.hpp](hdmi2_scdc_prepare.hpp) 和 [test_hdmi2_scdc_prepare.cpp](test_hdmi2_scdc_prepare.cpp)：纯模板 SCDC 协商、读回、回滚与连接代次保护，使用 MockBus 在 CI 测试；尚未链接 Apple DDC、Display13 Output Hook，也没有创建真实 HDMI2 修复 Kext。
+- 原有 SST、Deep8、HDMI600、eDP admission 与已安装 EFI 均不改变。
+
+---
+
 ## 上游 HDMI 2.0 借鉴与安全的首版实现骨架（2026-11-20）
 
 已经直接核查 WhateverXe [Issue #82](https://github.com/b00t0x/WhateverXe/issues/82)、[Issue #41](https://github.com/b00t0x/WhateverXe/issues/41)、[Issue #155](https://github.com/b00t0x/WhateverXe/issues/155) 以及同 A7A0 机型的 [Air14 HDMI SCDC](https://github.com/Wtrwx/Lenovo-Air14-IRP8-Hackintosh/blob/main/sources/WhateverXe/WhateverXe/kern_display13_hdmi_scdc.hpp)。结论与精准移植门槛详见 [UPSTREAM_HDMI2_IMPLEMENTATIONS_20261120.md](UPSTREAM_HDMI2_IMPLEMENTATIONS_20261120.md)。
