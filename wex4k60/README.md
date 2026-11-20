@@ -32,6 +32,14 @@ Linux i915 的成熟参考实现将 sink SCDC 状态、高 TMDS 比率和 Source
 - https://github.com/b00t0x/WhateverXe/issues/41 （另一个 ADL-S 平台仅放宽 300MHz 已有实际成功；不适用于推断本机）
 - https://github.com/Lanye-z/WhateverXe-yogapro13900/blob/experiment/wex-0.8.3-yoga-hdmi2-route-diag/wexlink/ROUTE_DIAG_README.md （本机危险旧实验，**仅供复盘**）
 
+## 补充：官方 0.8.3 已存在的 Display13 GMBUS 记录
+
+源码静态核对已确认，官方 0.8.3 的 Display13 路径会安装 `wrapDisplay13GMBus()` 观察器（状态 `N97FBGMBusObservationReady`），并可记录 `N97FBGMBusLast`、`N97FBGMBusHistoryLast` 等。新采集脚本现已纳入这些字段，`compare.py` 能解析 `N97FBGMBusLast` 的原生返回码和请求状态。这些记录可能只是 EDID DDC，**不能直接当成 SCDC 事务**。
+
+此外，现有 `wrapTGLLightUpTMDS` 位于 TGL 路由，而不是已证实在 Yoga A7A0 Display13 上安装的 HDMI TMDS Hook。旧版自定义 Display13 路由曾造成实机加速丢失；这次必须先做原生符号/ABI/调用路径静态鉴别，绝不直接把它移植到成功 Kext。
+
+[详细源码位置、记录字段和风险边界](STATIC_SOURCE_AUDIT.md)
+
 ## 阶段 A：使用现有成功 Kext 完成只读取证
 
 **当前分支只增加脚本和文档，完全不更改 WhateverXe 生成器、Kext、NHI/雷电、Graphics、EDID 覆盖、OpenCore 配置或现有启动参数。**
