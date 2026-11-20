@@ -21,13 +21,14 @@ jobs:
         run: |
           set -euo pipefail
           bash -n wex4k60/collect.sh
-          python3 -m py_compile wex4k60/compare.py wex4k60/test_collect.py wex4k60/native_macho_audit.py wex4k60/test_native_macho_audit.py
+          python3 -m py_compile wex4k60/compare.py wex4k60/test_collect.py wex4k60/native_macho_audit.py wex4k60/test_native_macho_audit.py wex4k60/native_macho_deep.py wex4k60/test_native_macho_deep.py
       - name: Fixture A/B comparisons and forbidden mutation guard
         shell: bash
         run: |
           set -euo pipefail
           python3 wex4k60/test_collect.py
           python3 wex4k60/test_native_macho_audit.py
+          python3 wex4k60/test_native_macho_deep.py
       - name: Verify this phase does not ship a replacement Kext
         shell: bash
         run: |
