@@ -34,6 +34,11 @@ checks={
     "no additional MMIO or AUX": not any(s in block for s in ("WriteRegister32","WriteRegister64","writeAUX","writeMMIO","tglPrepareTrainingLease")),
     "bounded observations": "if(sequence<=8)" in block,
     "explicit observe/mask boot args": "-wex-yoga-tc5-sst" in flags and "-wex-yoga-tc5-sst-observe" in flags,
+    "conflicting flags refuse hooking": "const bool conflict=requested && observe;" in tc and "if(!conflict && eligible)" in tc,
+    "active masking forbidden in observe-only": "yogaSSTMaskRequested=requested && !observe && eligible;" in tc,
+    "unarmed path has no diagnostic registry writes": "if(requested || observe) {" in tc and tc.index("if(requested || observe) {") < tc.index('root->setProperty("WEXYogaSSTRequested"'),
+    "new instance fields at class tail": hpp.index("DVMTCalcFix modDVMTCalcFix;")<hpp.index("bool yogaSSTMaskRequested {false};")<hpp.index("bool yogaSSTHookReady {false};")<hpp.index("mach_vm_address_t orgDisplay13DPCDInfo {};")<hpp.rindex("};"),
+
     "function pointer declaration": "orgDisplay13DPCDInfo {};" in hpp,
     "hook status exposed": all(s in tc for s in ("WEXYogaSSTHookReady","WEXYogaSSTHookStatus")),
     "original DDI5 diagnostics preserved": all(s in cpp for s in ("WEXYogaUSBCDPTrainingLast","WEXYogaUSBCDPStopDetail")),
