@@ -28,7 +28,7 @@ date '+time=%Y-%m-%d %H:%M:%S %z' > "$DIR/time.txt"
 { ioreg -p IOService -r -l -w0 -c IOFramebuffer; } > "$DIR/IOFramebuffer.txt" 2>&1 || true
 grep -Ei 'WEXYoga|N97FB|IOFBCurrentPixelClock|IOFBTimingRange|IOFBOnline|IODisplayEDID|IODisplayConnect|AppleDisplay|IOFramebuffer|IOPowerManagement|IOServiceBusyState|HPD|Hotplug|Transcoder|Pipe|DisplayPort' "$DIR/ioreg.txt" > "$DIR/display_registry_focus.txt" || true
 if command -v log >/dev/null 2>&1; then
-  log show --last 20m --style compact --info --predicate     '(eventMessage CONTAINS[c] "hotplug" OR eventMessage CONTAINS[c] "HPD" OR eventMessage CONTAINS[c] "HDMI" OR eventMessage CONTAINS[c] "SCDC" OR eventMessage CONTAINS[c] "EDID" OR eventMessage CONTAINS[c] "framebuffer" OR eventMessage CONTAINS[c] "display pipe" OR process == "WindowServer")'     2>/dev/null | tail -n 2000 > "$DIR/recent_display_log.txt" || true
+  log show --last 20m --style compact --info --predicate     '(eventMessage CONTAINS[c] "hotplug" OR eventMessage CONTAINS[c] "HPD" OR eventMessage CONTAINS[c] "HDMI" OR eventMessage CONTAINS[c] "SCDC" OR eventMessage CONTAINS[c] "EDID" OR eventMessage CONTAINS[c] "framebuffer" OR eventMessage CONTAINS[c] "display pipe" OR (process == "WindowServer" AND eventMessage CONTAINS[c] "display"))'     2>/dev/null | tail -n 2000 > "$DIR/recent_display_log.txt" || true
 fi
 cat > "$DIR/USER_OBSERVATION.txt" <<'TXT'
 HDMI cable physically still attached (yes/no):
