@@ -19,7 +19,7 @@ def run(source,graphics):
     hpp=source/"WhateverXe/kern_xe.hpp";cpp=source/"WhateverXe/kern_xe.cpp"
     h=hpp.read_text();s=cpp.read_text()
     h=once(h,"bool display13FBSSTHooksReady {};",
-      "bool display13FBSSTHooksReady {};\n bool yogaUSBCDPDiagEnabled {false};\n void yogaUSBCDPDiagSnapshot(void *,uint32_t *);",
+      "bool display13FBSSTHooksReady {};\n bool yogaUSBCDPDiagEnabled {false};\n void yogaUSBCDPDiagSnapshot(void *,void *,uint32_t *);",
       "safe fields / non-virtual helper")
     hpp.write_text(h)
     init='''        root->setProperty("WEXYogaHDMI600Status",status,32);
@@ -32,14 +32,14 @@ def run(source,graphics):
         "WEXYogaUSBCDPDiagEnabled",yogaUSBCDPDiagEnabled);
 ''',"A7A0 TC5-only opt in")
     diagnostic=r'''
-void XE::yogaUSBCDPDiagSnapshot(void *controller,uint32_t *rec) {
+void XE::yogaUSBCDPDiagSnapshot(void *controller,void *retainedPort,uint32_t *rec) {
     if(!rec)return;
     auto s=callbackXE;auto &c=display13FBPower;
     rec[0]=1;rec[1]=5;
-    if(!s->yogaUSBCDPDiagEnabled || !c.lock || !s->tglPortByDDI)return;
-    // Preserve the original port lookup -> Display13 lock order; do NOT
-    // invoke the native port lookup while holding the Display13 IOLock.
-    auto p=static_cast<OSObject *>(reinterpret_cast<void *(*)(uint32_t)>(s->tglPortByDDI)(5));
+    if(!s->yogaUSBCDPDiagEnabled || !c.lock)return;
+    // Use the port already retained by the existing training lease: no new
+    // native lookup, ref acquisition, or possible lock inversion.
+    auto p=static_cast<OSObject *>(retainedPort);
     IOLockLock(c.lock);
     const bool valid=p && p->getMetaClass()->getClassSize()>=0x624;
     auto cfg=valid ? Display13FBMemory::field<uint32_t *>(p,0x548) : nullptr;
@@ -69,7 +69,7 @@ void XE::yogaUSBCDPDiagSnapshot(void *controller,uint32_t *rec) {
 #ifndef WEX_DPDIAG_TEST_MOCK
     if(callbackXE->yogaUSBCDPDiagEnabled && id==6) {
         uint32_t diag[24] {};
-        callbackXE->yogaUSBCDPDiagSnapshot(controller,diag);
+        callbackXE->yogaUSBCDPDiagSnapshot(controller,selected ? selected->port : nullptr,diag);
         diag[20]=record[0];diag[21]=r;
         diag[22]=selected!=nullptr;diag[23]=leaseError;
         auto root=IORegistryEntry::getRegistryRoot();
