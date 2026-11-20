@@ -37,7 +37,7 @@ KEYS=(
   "IOFBCurrentPixelClock","IOFBTimingRange",
 )
 PREFIXES=("N97FBClock", "N97FBDBUF", "N97FBPipe",
-          "N97FBHDMI", "N97FBWatermark")
+          "N97FBHDMI", "N97FBGMBus", "N97FBWatermark")
 DISPLAY_FIELDS=("Resolution:", "Refresh Rate:", "UI Looks like:",
                 "Framebuffer Depth:", "Metal Support:", "Connection Type:")
 
