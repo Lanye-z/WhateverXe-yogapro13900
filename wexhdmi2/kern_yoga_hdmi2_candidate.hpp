@@ -36,6 +36,9 @@ static inline void yogaHDMI2ObserveDDC(OSObject *port,uint32_t block,
             yogaHDMI2Live.caps=Display13HDMI::combine(yogaHDMI2Live.caps,c);
         }
         ++yogaHDMI2Live.generation;
+        // Any fresh DDC extension invalidates a previous source-mode token:
+        // the sink capability/cache generation may have changed.
+        __atomic_store_n(&yogaHDMI2ArmedPipe,3U,__ATOMIC_RELEASE);
     }
     IOSimpleLockUnlock(lock);
 }
@@ -106,6 +109,10 @@ static inline uint32_t yogaHDMI2TryPrepare(IOService *controller,IOService *fb,
        Display13FBMemory::field<void *>(path,0x32B0)!=fb)return 6;
     const auto pipe=Display13FBMemory::field<uint32_t>(path,0x3640);
     if(pipe>=3)return 7;
+    // Never inject SCDC traffic into the proven normal 4K30 boot. Only
+    // restore low mode if this same pipe was previously armed for high TMDS.
+    if(allowWrite && pixelHz<=YogaHDMI2::HighTMDSHz &&
+       __atomic_load_n(&yogaHDMI2ArmedPipe,__ATOMIC_ACQUIRE)!=pipe)return 52;
     // The precise current path shadow is read, not guessed from HDMI EDID.
     const auto ctl=Display13FBMemory::field<uint32_t>(path,0x12C);
     const bool hdmi=((ctl>>24)&7)==0 && ((ctl>>20)&7)==0;
