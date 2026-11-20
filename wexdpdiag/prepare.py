@@ -81,24 +81,34 @@ void XE::yogaUSBCDPDiagSnapshot(void *controller,uint32_t *rec) {
     s=method(s,"uint32_t XE::wrapTGLTraining(","\nuint32_t XE::wrapTGLTrainingEnd(",training)
     def stop(x):
         x=once(x," IOLockLock(c.lock);auto p=display13SSTPort(port);Display13FBPowerIO power{c.map};bool ok=false;",
-          ''' uint32_t stop[16] {};stop[0]=1;
+          '''#ifndef WEX_DPDIAG_TEST_MOCK
+ uint32_t stop[16] {};stop[0]=1;
+#endif
  IOLockLock(c.lock);auto p=display13SSTPort(port);Display13FBPowerIO power{c.map};bool ok=false;
- stop[1]=p!=nullptr;stop[3]=pipe;''',"stop setup")
+#ifndef WEX_DPDIAG_TEST_MOCK
+ stop[1]=p!=nullptr;stop[3]=pipe;
+#endif''',"stop setup")
         x=once(x," if(p && c.bridge.pipeHeld(power,pipe)) {",
           ''' if(p && c.bridge.pipeHeld(power,pipe)) {
-  if(s->yogaUSBCDPDiagEnabled)stop[2]=1;''',
+#ifndef WEX_DPDIAG_TEST_MOCK
+  if(s->yogaUSBCDPDiagEnabled)stop[2]=1;
+#endif''',
           "note power held without second power query")
         x=once(x,"  auto &deferred=display13DeferredClocks[pipe];",
           '''  auto &deferred=display13DeferredClocks[pipe];
+#ifndef WEX_DPDIAG_TEST_MOCK
   if(s->yogaUSBCDPDiagEnabled && ddi==5) {
    stop[4]=buffer;stop[5]=conf;stop[6]=func;stop[7]=tp;stop[8]=clock;
    stop[9]=deferred.pending;stop[10]=deferred.port==port;
    stop[11]=c.bridge.nativeDDIRefs(ddi);stop[12]=c.clockFaulted;
-  }''',"stop register values already read by native code")
+  }
+#endif''',"stop register values already read by native code")
         return once(x," IOLockUnlock(c.lock);return ok;",
           ''' IOLockUnlock(c.lock);
+#ifndef WEX_DPDIAG_TEST_MOCK
  if(!ok && s->yogaUSBCDPDiagEnabled && stop[1] && stop[3]<3)
   IORegistryEntry::getRegistryRoot()->setProperty("WEXYogaUSBCDPStopDetail",stop,sizeof(stop));
+#endif
  return ok;''',"nonblocking publish after lock")
     s=method(s,"bool XE::display13StopTranscoder(","\nbool XE::processDisplay13FramebufferSST(",stop)
     cpp.write_text(s)
