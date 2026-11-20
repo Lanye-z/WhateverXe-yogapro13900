@@ -106,11 +106,11 @@ jobs:
           ditto -c -k --keepParent "$KEXT" dist/WhateverXe_0.8.3_HDMI2_SAFE_CANDIDATE.zip
           git -C Source diff -- WhateverXe tests/fixtures/boot_argument_names.json > dist/EXACT_PATCH.diff
           cp wexhdmi2/README.md dist/README.md
-          cp wex600/collect.sh dist/collect.sh
-          cp wex4k60/compare.py dist/compare.py\n          cp wex4k60/collect.sh dist/collect.sh
+          cp wex4k60/compare.py dist/compare.py
+          cp wex4k60/collect.sh dist/collect.sh
           cp Source/build/RELEASE/build-manifest.json dist/
           (cd dist && shasum -a 256 WhateverXe*.zip > SHA256SUMS)
-          unzip -t dist/WhateverXe_0.8.3_DEEP8_HDMI600_USBC_SST.zip
+          unzip -t dist/WhateverXe_0.8.3_HDMI2_SAFE_CANDIDATE.zip
       - uses: actions/upload-artifact@v4
         with:
           name: Yoga-0.8.3-HDMI2-SAFE-CANDIDATE-KEXT
