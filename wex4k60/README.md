@@ -32,6 +32,20 @@ Linux i915 的成熟参考实现将 sink SCDC 状态、高 TMDS 比率和 Source
 - https://github.com/b00t0x/WhateverXe/issues/41 （另一个 ADL-S 平台仅放宽 300MHz 已有实际成功；不适用于推断本机）
 - https://github.com/Lanye-z/WhateverXe-yogapro13900/blob/experiment/wex-0.8.3-yoga-hdmi2-route-diag/wexlink/ROUTE_DIAG_README.md （本机危险旧实验，**仅供复盘**）
 
+## Display13 HDMI 2.0 的静态调用顺序已经建立（尚未写驱动补丁）
+
+根据 **Linux i915 + 同 A7A0 的 Air14 参考源码 + 本机正常 4K30 日志**，高速 HDMI 的候选阶段顺序应为：
+
+`EDID/getOnlineInfo` → `setColorMode/ClockParams` → **（在 TMDS 物理输出启用前）sink SCDC 0x20 协商与读回** → **准备 source Scrambling/High TMDS ratio 控制字段** → 原生 `LightUpTMDS` 启用 → sink Scrambling_Status 验证；失败/降到 4K30 时恢复 sink/source 状态。
+
+官方 0.8.3 的 Display13 **没有注册**与 TGL dispatcher 相同的 `wrapTGLLightUpTMDS` 路由，参考 A7A0 则在 Display13 输出安装组中增加了这一函数。我们过去的独立 route-only Hook 曾引起实机加速丢失，因此 **不得直接照搬该路由/偏移/结构体字段**。
+
+已读取本次用户 `hdmi30` IORegistry：`N97FBOutputHooksReady=Yes`、`N97FBGMBusObservationReady=Yes`，但 `TGLWEGRoutePathObservations` 与旧自定义 `WEXYogaHDMI2TMDSRouteStatus` **未发布**。这与目前代码分流路径一致，并非证明 Apple 原生从未调用 HDMI LightUp。
+
+[详细函数映射、控制位、风险与下一步原生 Mach-O 验证方案](NATIVE_DISPLAY13_HDMI20_STATIC_TIMELINE_20261120.md)
+
+---
+
 ## 补充：官方 0.8.3 已存在的 Display13 GMBUS 记录
 
 源码静态核对已确认，官方 0.8.3 的 Display13 路径会安装 `wrapDisplay13GMBus()` 观察器（状态 `N97FBGMBusObservationReady`），并可记录 `N97FBGMBusLast`、`N97FBGMBusHistoryLast` 等。新采集脚本现已纳入这些字段，`compare.py` 能解析 `N97FBGMBusLast` 的原生返回码和请求状态。这些记录可能只是 EDID DDC，**不能直接当成 SCDC 事务**。
