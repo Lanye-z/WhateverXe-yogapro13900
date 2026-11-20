@@ -38,7 +38,7 @@ if command -v log >/dev/null 2>&1; then
     2>/dev/null | tail -n 800 > "$DIR/recent_display_log.txt" || true
 fi
 
-grep -Ei 'WEXYogaHDMI600|WEXYogaHDMIEDIDAB|WEXYogaHDMIColor|WEXYogaSST|N97FBClock|N97FBDBUF|N97FBPipe|N97FBHDMI|N97FBWatermark|IOFBTimingRange|IOFBCurrentPixelClock|IODisplayEDID|TRANS_DDI_FUNC_CTL|PIPE_MISC' \
+grep -Ei 'WEXYogaHDMI600|WEXYogaHDMIEDIDAB|WEXYogaHDMIColor|WEXYogaSST|N97FBClock|N97FBDBUF|N97FBPipe|N97FBHDMI|N97FBGMBus|N97FBWatermark|IOFBTimingRange|IOFBCurrentPixelClock|IODisplayEDID|TRANS_DDI_FUNC_CTL|PIPE_MISC' \
   "$DIR/ioreg.txt" > "$DIR/hdmi_diagnostics.txt" || true
 
 # Manually observed physical output status. Do NOT infer panel visibility
