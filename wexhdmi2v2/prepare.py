@@ -40,12 +40,13 @@ def main(source,graphics):
     c=once(c,"__atomic_load_n(&yogaHDMI2ArmedPipe,__ATOMIC_ACQUIRE)!=pipe)return 52;",
           "__atomic_load_n(&yogaHDMI2ArmedPipe,__ATOMIC_ACQUIRE)>=3U)return 52;",
           "same-sink low-speed SCDC restoration across pipe changes")
-    # SCDC uses 7-bit slave 0x54 => write address 0xA8, READ address 0xA9.
-    # First safe-mode capture (2026-11-21 14:40) showed 0xA8/0xA8
-    # read attempts failing with kIOReturnNotResponding.
-    # Preserve all locking, bus selection, handshake ordering and native paths.
-    c=once(c,'request.replyAddress=0xA8;', 'request.replyAddress=0xA9;',
-           'SCDC I2C read address bit must be set')
+    # REJECTED hypothesis: 0xA9 looked plausible by 8-bit I2C direction
+    # convention, but the reference Apple Display13 native SCDC request in
+    # Wtrwx's implementation explicitly uses send=reply=0xA8.
+    # The user's successful EDID native requests likewise used reply=0xA0.
+    # Do NOT change replyAddress until native GMBUS normalization is traced.
+    assert c.count('request.sendAddress=0xA8;')==1
+    assert c.count('request.replyAddress=0xA8;')==1
     cand.write_text(c)
     s=cpp.read_text()
     s=once(s,'yogaHDMI2SafeRequested=checkKernelArgument("-wex-yoga-hdmi2-safe");',
