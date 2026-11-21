@@ -16,7 +16,7 @@ struct Eligibility {
     bool newGeneration {};
     bool alreadyAttempted {};
     bool postBootMature {}; // after one stable native high-rate output
-    bool observedLongHDMIOff {}; // HDMI-B transcoder off, not an HPD bounce
+    bool nativeDozeWakeVerified {}; // real FB1 power callback: Doze(1)->Wake(2)
     bool preservedCapsValid {};
     bool preservedCapsSCDC {};
     uint32_t preservedMaxKHz {};
@@ -26,7 +26,7 @@ inline bool mayRecover(const Eligibility &s) {
         s.freshValidBase && s.exactKnownSink && !s.ctaAlreadySeen &&
         s.provenPriorHighSession && s.sameCompleteBaseEDID &&
         s.newGeneration && !s.alreadyAttempted &&
-        s.postBootMature && s.observedLongHDMIOff &&
+        s.postBootMature && s.nativeDozeWakeVerified &&
         s.preservedCapsValid && s.preservedCapsSCDC &&
         s.preservedMaxKHz>340000 && s.preservedMaxKHz<=600000;
 }
