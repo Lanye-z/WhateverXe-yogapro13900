@@ -19,6 +19,21 @@ assert 'WEXYogaHDMI2CallsiteLast' in source
 assert '-wex-yoga-hdmi2-callsite-safe' in source
 assert '-wex-yoga-hdmi2-callsite-observe' in source
 assert 'orgDisplay13HDMI2TMDS' not in source
+# Regression test for the real-machine 22MB / Metal-loss failure:
+# TC-native checks innerCall [0x4ffb6:7] against the original opcode;
+# V2 must not rewrite its first five bytes inside processOutput beforehand.
+tc=Path("Source/WhateverXe/kern_display13_tc_native.hpp").read_text()
+assert 'innerCallOffset=0x4ffb6' in tc.lower()
+assert 'innerCall[]={0xe8,0x67,0x0b,0x00,0x00,0xeb,0x1c}' in tc.lower()
+tc_call='display13FBTCHooksReady=processDisplay13FramebufferTC(patcher,index,address,size);'
+modify='patcher.routeBlock(address+callOffset,patchedCall,sizeof(patchedCall));'
+assert source.count(tc_call)==1 and source.count(modify)==1
+assert source.index(tc_call)<source.index(modify), "V2 code-patch executed before TC validates original CALL"
+# The actual patch routine must be conditioned on the success of TC installation.
+after=source[source.index(tc_call):source.index(modify)]
+assert 'display13FBTCHooksReady' in after
+assert 'display13FBOutputHooksReady' in after
+print("PASS: no native CALL patch before original-byte-dependent TC validation")
 helper=Path("Source/WhateverXe/kern_yoga_hdmi2_candidate.hpp").read_text()
 assert 'IOLockTryLock(state.lock)' in helper
 assert 'IORecursiveLockHaveLock(recursive)' in helper
