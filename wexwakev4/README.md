@@ -6,6 +6,24 @@
 
 **实验候选，不是已实机确认的唤醒修复。** 本分支从已通过 CI 的 [Yoga Unified RC1](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/integration/wex-0.8.3-yoga-unified-rc1) 的 **提交 `72ee3bca81c17f97382707ddf51b6818d295a3d7`** 派生。仅新增 `wexwakev4/` 的最小补丁和独立 CI；未覆盖 Unified RC1、原 V3、旧 `main` 或任何现有 EFI。
 
+## V4 BootSafe R1 — 本分支最新候选（仍需实机验证）
+
+基于 17:27 A 组和 17:43 B 组原始诊断 ZIP，B 组**重启后首次进入桌面就三屏全黑**，并非显示器休眠之后发生。B 组仅记录到一次 V3 CALL-site `status=100`，**没有恢复尝试事件 4 或恢复状态 110**；随后 DDI1 HPD 抖动，FB0/FB2 记录 `0xe00002d8`，且 `N97FBDBUFLayoutFailure` / WM Failure Inputs 出现。不能因此声称新 SCDC 重试导致或修好了三屏全黑。
+
+此 R1 修改仅为 **启动隔离和取证强化**，没有启用新的自动 HPD 重置、强制 modeset 或伪造 SCDC ACK：
+
+- 只有在本次启动已经存在真实的**同一 HDMI-B 4K60 原生 SCDC 成功准备记录**之后，才开始计时；
+- 从首次成功准备经过 **至少 90 秒**，并且已有**该 HDMI-B transcoder 的 enable=0 原生寄存器写入**且关闭至少 **3 秒**，才允许进入一次性重验证的后续判断；
+- 新监视只读取原 V3 MMIO-write wrapper 的输入 `reg/value`，没有额外硬件读写、没有新的 Hook；**若低功耗过程中没有观测到该写入，保持拒绝，不尝试恢复**；
+- 原有同一物理端口、AOC EDID **完整 128 字节逐字节一致**、当前 CTA 缺失、仅一代一次、owner lock、native SCDC readback 等限制**全部保留**；
+- 新增 `WEXYogaHDMI2WakeRejectLast`（最后一次 status=10 的失败快照）、`WEXYogaHDMI2WakeActionLast`（候选行动快照），避免被稍后的 CTA EDID 事件覆盖；
+- 诊断标志 `flags`：bit6 表示首次高速会话已满 90 秒，bit7 表示同一 HDMI-B 输出已关闭至少 3 秒，bit8/9/10/11 表示有效 CTA、HDMI、SCDC、>340MHz 能力，bit12 表示请求了恢复；这些标志仍不证明物理显示器真正点亮。
+
+**关键限制：** 如果开机三屏全黑发生时恢复事务根本未运行，这个门控更改只能降低新逻辑过早介入的机会，**不能宣称从根本上修好了启动时的共享 DBUF/WM 失败**。此分支仍是实验分支；旧 B 组 ZIP 不应继续安装，必须识别新的 `BootSafe R1` 文件名。建议先用 A 组确认稳定启动，再考虑 B 组严格受控测试，当前无法保证 B 组能正常点亮。
+
+- 预期新构建文件：`WhateverXe_0.8.3_YOGA_UNIFIED_WAKE_V4_BOOTSAFE_R1_TEST.zip`
+- 对照旧构建：`WhateverXe_0.8.3_YOGA_UNIFIED_WAKE_V4_TEST.zip`（**停止使用**）
+
 ## 功能基线：一份 Kext，不恢复旧启动参数
 
 | 功能 | 本 V4 默认行为 |
