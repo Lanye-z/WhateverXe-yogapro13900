@@ -42,6 +42,46 @@ def main(source,graphics):
           "same-sink low-speed SCDC restoration across pipe changes")
     cand.write_text(c)
     s=cpp.read_text()
+    # V3: The 2026-11-21 safe capture proves SCDC read stage +0x7E8
+    # sometimes reads GMBUS2=0x8200 (INUSE, no HW_RDY, no NAK) then the donor
+    # exits without waiting. V2 only polls +0x7E8 for 128B EDID; narrowly
+    # extend that EXISTING bounded status poll to physical HDMI-B SCDC reads.
+    # Real NAK=0x8600 still fails closed without retry or forged readiness.
+    s=once(s,'    bool edid {};\n    uint64_t history[96][4] {};',
+             '    bool edid {},scdcRead {};\n    uint64_t history[96][4] {};',
+             'SCDC per-thread GMBUS scope flag')
+    edid_end='*reinterpret_cast<uint32_t *>(req+0x0C)==0xA0 && *reinterpret_cast<uint32_t *>(req+0x38)==128;'
+    extra_scdc=r'''
+        // Only the pinned HDMI-B DDC2 register-pointer read (SCDC 0x54).
+        // Native Apple GMBUS internally encodes reply address A8 as A9.
+        // Never touch DDC-CI, other ports, reads without matching buffers,
+        // or ordinary boots where the HDMI2 CALL experiment is disabled.
+        o.scdcRead=yogaHDMI2CallsiteSafe &&
+            controller==callbackXE->adlnTopologyController &&
+            callbackXE->adlnOutputWiring.hdmi==2U &&
+            bus==2 && callbackXE->adlnOutputWiring.usesDDC(bus) &&
+            speed==0 && req &&
+            *reinterpret_cast<uint32_t *>(req)==1 &&
+            *reinterpret_cast<uint32_t *>(req+4)==1 &&
+            *reinterpret_cast<uint32_t *>(req+8)==0xA8 &&
+            *reinterpret_cast<uint32_t *>(req+0x0C)==0xA8 &&
+            *reinterpret_cast<uint32_t *>(req+0x28)==1 &&
+            *reinterpret_cast<uint32_t *>(req+0x38)==1 &&
+            *reinterpret_cast<uint32_t *>(req+0x20)==0 &&
+            req[0x10]==0 && req[0x11]==0;
+'''
+    s=once(s,edid_end,edid_end+extra_scdc,
+           'SCDC exact native I2C request qualification')
+    old_wait='if(reg==0xC5108 && caller>=start && caller-start==0x7E8 && access==display13FBPower.access) {'
+    new_wait='''if(reg==0xC5108 && caller>=start &&
+       (caller-start==0x7E8 || caller-start==0x45C) &&
+       access==display13FBPower.access) {'''
+    s=once(s,old_wait,new_wait,'SCDC native readiness wait sites')
+    old_scope='if(__sync_fetch_and_add(&o.thread,0)==thread && o.edid) {'
+    new_scope='''if(__sync_fetch_and_add(&o.thread,0)==thread &&
+            ((caller-start==0x7E8 && (o.edid || o.scdcRead)) ||
+             (caller-start==0x45C && o.scdcRead))) {'''
+    s=once(s,old_scope,new_scope,'SCDC-only conditional wait eligibility')
     s=once(s,'yogaHDMI2SafeRequested=checkKernelArgument("-wex-yoga-hdmi2-safe");',
            'yogaHDMI2SafeRequested=checkKernelArgument("-wex-yoga-hdmi2-callsite-safe");',
            "V2 exclusive active flag")
