@@ -6,7 +6,34 @@
 
 **实验候选，不是已实机确认的唤醒修复。** 本分支从已通过 CI 的 [Yoga Unified RC1](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/integration/wex-0.8.3-yoga-unified-rc1) 的 **提交 `72ee3bca81c17f97382707ddf51b6818d295a3d7`** 派生。仅新增 `wexwakev4/` 的最小补丁和独立 CI；未覆盖 Unified RC1、原 V3、旧 `main` 或任何现有 EFI。
 
-## V4 R3 — HDMI Session State Recovery（本分支最新修复候选）
+## V4 R4 — First-Wake + 32-slot Trace（本分支最新修复候选）
+
+**依据 2026-11-21 19:24:45，同一次 19:11:19 启动的 R3 B 组实机证据：**
+- 第 1 轮 FB1 Doze **2.60 s**，高 TMDS CALL-site 返回 **10**；
+- 第 2 轮 Doze 17.74 s，但首次成功高 TMDS 后不足 90 秒，仍返回 **10**；
+- 第 3 轮 R3 返回 **110**，约 1.6 秒后 DDI1 HPD 低→高，随后又一次原生 **100**；
+- 第 4 轮仅 Doze **1.37 s**，开机已超过 90 秒，但因未满 3 秒再次返回 **10**；
+- 后续较长 Doze 的恢复重复出现 **110 → HPD 重新枚举 → 第二次 4K60 modeset/100**。这意味着 **110 的 SCDC 读回成功不等于物理画面当场点亮**，尚需与 HPD 和第二次原生 modeset 精确对照。
+
+**R4 的实际代码改动：**
+
+1. **删除 R3 人为的“首次高 TMDS 成功后 ≥90 秒”和“当前 Doze ≥3 秒”资格门槛**。R4 在固定 WhateverXe 0.8.3 的原生 FB1 电源回调内部，只要求本次启动已有真正成功的 4K60 SCDC 会话，并且 FB1 已完成 **Wake(2)→Doze(1)**，此刻正在 **Doze(1)→Wake(2)** 且两个状态的时间顺序正确。即使 Doze 只有约 1.37 秒，也不再因任意时长而拒绝。
+2. 保留 R3 的**物理 HDMI-B/AOC 05E3:2710 完整 128 字节 EDID 一致性、已经成功的原生高 TMDS 会话、当前 CTA 尚未就绪、原生 controller owner、同一连接代次、每代至多一次、以及真实 SCDC read/write/readback 成功**等硬条件。第一次开机模式设置和单纯 HPD 低高不满足真实的 FB1 Doze→Wake，不能动用历史 CTA。
+3. **拆开可追溯的“最近一次实际完成 SCDC 事务”和“EDID/CTA 当前代次、软件 armedPipe 标记”**：R4 记录最后一次原生 SCDC 成功的代次/状态（100/110/101）和最近一次 DDC 能力快照，但这些变量只是**诊断事实，不是放宽实际硬件写入的授权**。原有 EDID 刷新清除 `armedPipe` 的保护逻辑**不变**，真实换屏、代次变化时依旧拒绝旧缓存。
+4. 新增循环保留最近 **32 次** `WEXYogaHDMI2CallsiteHist01..32`，记录 20×uint64：schema、累计序号、调用开始/结束 mach absolute time、pipe、pixelClockHz、SCDC status、原生 LightUpTMDS 返回码、armedPipe 前/后、source flags 前/后、最后 DDC 代次/flags/maxKHz、上次 SCDC 成功代次/状态、B 组开关、FB1 原生唤醒窗口、曾成功的 HDMI pipe。第 33 次覆写第 1 槽；依靠累计序号排序。
+5. 新增最近 **32 次** `WEXYogaHDMI2WakePowerHist01..32`（原先的 11×uint64 native FB1 Power record），结合原有 HPD 系统日志区分 **110 单独点亮** 与 **110 后 HPD→二次 100 才点亮**。无需新的 HPD Hook，也不会主动触发 HPD/modeset。
+6. 原有 R3 受限 4K60→4K30 状态清理保留不变；不动 DDI5 SST、内屏 120 Hz、DBUF、WM、PLL、PHY，且不在 DDC lock 内新增 SCDC IO。
+
+**版本与测试：** 新构建包名称
+`WhateverXe_0.8.3_YOGA_UNIFIED_WAKE_V4_FIRSTWAKE_R4_TEST.zip`
+（Actions artifact: `Yoga-0.8.3-UNIFIED-WAKE-V4-FIRSTWAKE-R4-TEST`）。
+只在 CI RELEASE 编译和完整原版回归测试通过后使用；**即使 221/221 软件测试全部通过，也不等于实机修复成功。**
+
+**安全实验顺序**：先备份可信 EFI，使用独立 R4 测试 EFI 的 A 组（仅 diag）验证三屏初始点亮，再考虑有可靠回退通道的 B 组（`-wex-yoga-hdmi2-wake-recover`）。过去的旧 B 曾开机三屏全黑且没有恢复事件，不能假定 R4 自动消除了这一独立故障。测试时只需一次短 Doze→Wake，并在第一次 AOC 黑屏时立刻采集原有 `after_wake`；新诊断属性将由 `01_ioreg_full.txt` 和 `05_highlighted_properties.txt` 收集。是否物理点亮仍需用户观察，不能仅凭 110 判定。
+
+---
+
+## V4 R3 — HDMI Session State Recovery（历史候选，已由 R4 替代）
 
 **针对 18:45 日志的直接证据：**
 - A 组 R2 的 `WakeRejectLast` 记录 `generation=25, pipe=1, pixelHz=533250000, status=10, flags=0xCB, maxKHz=0, armedPipe=3`；
