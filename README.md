@@ -6,7 +6,7 @@
 >
 > **安全更新（2026-11-21）：旧 V4 B 组首次开机三屏全灭，已停止推荐旧 B 包。现有 BootSafe R1 通过启动阶段保护门控降低恢复逻辑过早介入的风险，但没有证明修复了此前记录的 DBUF/WM 失败。新版本仍未实机验证，请先使用 A 组和备用 EFI。**
 >
-> [V4 BootSafe R1 机制与安全说明](wexwakev4/README.md) · [BootSafe R1 构建与 221/221 测试通过](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44892555202) · [BootSafe R1 专属构建包](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44892555202/artifacts/14702717609) · [原 Unified RC1](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/integration/wex-0.8.3-yoga-unified-rc1)
+> [V4 BootSafe R1 机制与安全说明](wexwakev4/README.md) · [BootSafe R1 构建与 221/221 测试通过](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44892583308) · [BootSafe R1 专属构建包](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44892583308/artifacts/14702428897) · [原 Unified RC1](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/integration/wex-0.8.3-yoga-unified-rc1)
 
 ---
 
