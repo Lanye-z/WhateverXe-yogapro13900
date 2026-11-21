@@ -54,6 +54,21 @@ assert "yogaPowerWindow" in native_power
 assert "#if defined(WEX_HDMI2_NATIVE_POWER_R2)" in native_power
 assert "yogaHDMI2WakeNativeFB1DozeAt" in native_power
 assert "yogaHDMI2WakeInNativeFB1Wake" in native_power
+# R3 must remain read-only on A group and refuse all low-mode I2C
+# until an actual prior 4K60 status10 + native Wake + fresh CTA + exact sink.
+assert "YogaHDMI2Session::mayReconcileLow(p)" in h
+assert "yogaHDMI2MayReconcileLow(port,path,pipe,lock)" in h
+assert "yogaHDMI2WakeMissingCTAAtGen" in h
+assert "yogaHDMI2WakeCompletedNativeFB1WakeAt" in h
+assert "if(!lowReconcile)return 52;" in h
+assert "if(pixelHz>YogaHDMI2::HighTMDSHz && same && baseMatches &&" in h
+assert "yogaHDMI2WakeRecord(7U,generation,pipe,pixelHz," in h
+assert "if(event>=4U && event<=7U)" in h
+assert "p.requested=yogaHDMI2WakeRecover;" in h
+assert "if(!yogaHDMI2WakeRecover || !port || !path || !lock || pipe!=1U)" in h
+assert "if(state==2U && yogaPowerPrior==1U)" in native_power
+assert (root/"WhateverXe/kern_yoga_hdmi2_session_policy.hpp").exists()
+
 
 assert "yogaHDMI2WakeCTASeen && yogaHDMI2WakeBaseExact" in h
 assert "memcmp(yogaHDMI2WakeCurrentBase,yogaHDMI2WakeProven.base,128)" in h
@@ -82,3 +97,5 @@ assert "WEXYogaHDMI2Callsite" in s
 print("PASS: V4 R2 real FB1 Doze->Wake required + exact sink + native SCDC transaction")
 print("PASS: optional V4 wake controls require V3 safe and fully installed callsite")
 print("PASS: Unified RC1 defaults, Metal TC ordering and DDI5 SST retained")
+
+print("PASS R3: original native HDMI callsite, readback and A-group behavior preserved; no DDI5/SST changes")
