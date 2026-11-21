@@ -237,8 +237,8 @@ def patch_cpp(source):
     # V3 CALL site handles the successful one-time V4 code 110 exactly like
     # success 100. All other return values continue original native path.
     source=once(source,
-        "if(status==100 &&\n                __atomic_load_n(&yogaHDMI2ArmedPipe,__ATOMIC_ACQUIRE)==pipe)",
-        "if((status==100 || status==110) &&\n                __atomic_load_n(&yogaHDMI2ArmedPipe,__ATOMIC_ACQUIRE)==pipe)",
+        "if(status==100 &&\n               __atomic_load_n(&yogaHDMI2ArmedPipe,__ATOMIC_ACQUIRE)==pipe)",
+        "if((status==100 || status==110) &&\n               __atomic_load_n(&yogaHDMI2ArmedPipe,__ATOMIC_ACQUIRE)==pipe)",
         "V4 source shadow update on verified recovery")
     source=once(source,
         "if(count<=16 || status==100 || status==101) {",
