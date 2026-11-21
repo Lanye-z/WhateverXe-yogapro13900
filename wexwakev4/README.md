@@ -6,7 +6,29 @@
 
 **实验候选，不是已实机确认的唤醒修复。** 本分支从已通过 CI 的 [Yoga Unified RC1](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/integration/wex-0.8.3-yoga-unified-rc1) 的 **提交 `72ee3bca81c17f97382707ddf51b6818d295a3d7`** 派生。仅新增 `wexwakev4/` 的最小补丁和独立 CI；未覆盖 Unified RC1、原 V3、旧 `main` 或任何现有 EFI。
 
-## V4 PowerWake R2 — 基于真实 FB1 Doze→Wake 的修复候选（当前分支）
+## V4 R3 — HDMI Session State Recovery（本分支最新修复候选）
+
+**针对 18:45 日志的直接证据：**
+- A 组 R2 的 `WakeRejectLast` 记录 `generation=25, pipe=1, pixelHz=533250000, status=10, flags=0xCB, maxKHz=0, armedPipe=3`；
+- 同一次 `WakePowerLast` 显示 FB1 从 Doze(1)→Wake(2)，原生返回 0；该原生回调运行期间执行了上面的 status10 高速 CALL-site；
+- 随后 `WakeLast` 已达到 CTA generation=29、maxTMDS=600000，但没有重新执行成功的高 TMDS SCDC 协商（`armedPipe` 仍为 3）；
+- 因此**这次黑屏不等同于 GPU 无法 modeset**，而是高 TMDS 的 SCDC 能力缓存与原生模式设置时序错位。用户观察到“切 30Hz 仍黑，再切 60Hz 才亮”与此高度一致，但尚未采到 30Hz 那次 CALL-site。
+
+**R3 修改两部分：**
+
+1. 保留 R2 基于**同一 FB1 的原生 Doze→Wake 回调**的受限高 TMDS 重新协商候选：只有曾真实 `status=100`、开机后至少 90 秒、完成原生 Doze 至少 3 秒，并且重新获取与上次成功会话**逐字节相同**的 AOC 基本 EDID，原生当前 CTA 尚未就绪时，才可一次性用此前已经验证的能力执行原生 SCDC read/write/readback。B 组成功会返回 `status=110`。没有新 Hook、定时器、HPD 重置、PHY/PLL 修改或强制 modeset。
+2. **补上 4K60 黑屏后转 4K30 的状态清理缺口**：V3/V2 为避免误操作，在 EDID 更新把 `armedPipe` 清为 3 时，会禁止无历史高速令牌的低速 SCDC 配置（`status=52`）。R3 只有在**同一次真实 Doze→Wake 中曾发生高模式 `status=10`、随后新 CTA 已恢复有效、同一已验证 AOC 128 字节 EDID 未变、现有源端寄存器仍带高速标志、原生 Wake 已成功完成**时，才允许现有 30Hz CALL-site 执行正常的低速 SCDC 重置读回和源端标志清理；成功记录 `event=7/status=101`。**不会自动把 60Hz 切换到 30Hz**，只是修复用户主动切 30Hz 时的清理路径。
+
+**A/B 含义与风险**：
+- A 组：`-wex-yoga-hdmi2-callsite-safe -wex-yoga-hdmi2-wake-diag`。仅增加 R3 判据记录，不执行新的 fallback。该组本来就能开机正常显示，但 4K60 唤醒黑屏可能保持原状。
+- B 组：A 组基础上加 `-wex-yoga-hdmi2-wake-recover`。只有它允许上述两种受限事务。**历史 B 组曾开机三屏全黑，且当时没有 status110，因此 R3 是否消除该启动异常仍未知。不能把 RELEASE 编译/221 项测试通过当作实机安全保证。先备份 EFI、确保远程访问可用，在确认新 A 组无启动回归后，才考虑受控 B 测试。**
+- 之前 BootSafe R1、PowerWake R2、旧 V4 包请勿与本版混用。新的构建包名为 `WhateverXe_0.8.3_YOGA_UNIFIED_WAKE_V4_SESSION_R3_TEST.zip`。
+
+事件判读：`WakeRejectLast` 的 flags 在 R3 新增 bit13（基本 EDID 与已验证会话完全一致）、bit14（新连接代次）、bit15（本代已经尝试过）；`WakeActionLast` 原有 event4=恢复开始、5=高速成功、6=高速失败之外，新增 **7=经过验证的低速 SCDC 清理成功**。状态 `110` 或 `101` 只证明 SCDC 事务成功，并不等于物理显示器一定恢复画面。
+
+---
+
+## V4 PowerWake R2 — 历史候选（由 R3 替代）
 
 **18:21 最新 A 组证据**：macOS 于 18:21:06 将 FB0/FB1/FB2 从 Wake 转入 Doze；18:21:14 DDI1 HPD 低→高；18:21:24 FB1 恢复 533250000 Hz 4K60 的 V3 CALL-site 返回 **status=10**。记录 \`WEXYogaHDMI2WakeRejectLast\` 显示 generation=25、flags=0x0B、maxKHz=0、armedPipe=3（相同物理 HDMI-B、AOC 有效 EDID 基本块、先前存在真实成功会话，**当前 CTA 能力未形成**）。稍后 \`WakeLast\` 为 generation=29、flags=0x1F、maxKHz=600000，但此时原生高速 modeset 已结束。
 
