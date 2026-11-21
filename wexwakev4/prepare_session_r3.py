@@ -8,6 +8,7 @@ native HDMI2 candidate and its already-routed FB1 power-state observer.
 from pathlib import Path
 import argparse
 import subprocess
+import shutil
 
 def once(s, old, new, title):
     n=s.count(old)
@@ -178,8 +179,13 @@ def main(root):
     pp=root/"WhateverXe/kern_display13_framebuffer_power.inc"
     out_h=patch_header(hp.read_text())
     out_p=patch_power(pp.read_text())
+    target=root/"WhateverXe/kern_yoga_hdmi2_session_policy.hpp"
+    policy=Path(__file__).resolve().parent/"kern_yoga_hdmi2_session_policy.hpp"
+    if target.exists():raise RuntimeError("R3 native donor already has session policy")
+    if not policy.is_file():raise RuntimeError("missing R3 pure session policy")
     hp.write_text(out_h)
     pp.write_text(out_p)
+    shutil.copyfile(policy,target)
     subprocess.run(["git","-C",str(root),"diff","--check"],check=True)
     print("PASS R3: previous native FB1 wake failure is separate from fresh CTA cache")
     print("PASS R3: strict one-time 30Hz SCDC cleanup only after verified matching AOC/CTA and old source flags")
