@@ -6,7 +6,7 @@ using YogaHDMI2Wake::mayRecover;
 int main() {
     Eligibility q {};
     assert(!mayRecover(q));
-    q={true,true,true,true,true,false,true,true,true,false,true,true,600000};
+    q={true,true,true,true,true,false,true,true,true,false,true,true,true,true,600000};
     assert(mayRecover(q));
     {
         Eligibility t=q; t.activeHDMI2=false; assert(!mayRecover(t));
@@ -19,6 +19,8 @@ int main() {
         t=q; t.sameCompleteBaseEDID=false; assert(!mayRecover(t));
         t=q; t.newGeneration=false; assert(!mayRecover(t));
         t=q; t.alreadyAttempted=true; assert(!mayRecover(t));
+        t=q; t.postBootMature=false; assert(!mayRecover(t));
+        t=q; t.observedLongHDMIOff=false; assert(!mayRecover(t));
         t=q; t.preservedCapsValid=false; assert(!mayRecover(t));
         t=q; t.preservedCapsSCDC=false; assert(!mayRecover(t));
         t=q; t.preservedMaxKHz=340000; assert(!mayRecover(t));
