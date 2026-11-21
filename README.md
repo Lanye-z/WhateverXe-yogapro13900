@@ -4,9 +4,9 @@
 >
 > V4 新增 `-wex-yoga-hdmi2-wake-diag`（诊断）和 `-wex-yoga-hdmi2-wake-recover`（严格限次恢复候选）。**两项默认均关闭**，不得认为 V4 已经通过实机唤醒验证。用于复盘第二次 Display Wake 后 AOC 4K60 黑屏、随后手动 30→60Hz 可恢复的问题。
 >
-> **安全更新（2026-11-21）：旧 V4 B 组首次开机三屏全灭（且未执行恢复事务），所以不可宣称三屏全黑已被修复。现有 PowerWake R2 用原生 FB1 Doze→Wake 回调替代 BootSafe R1 的寄存器启停猜测，但仍是尚未实机验证的候选。先在独立测试 EFI 使用 A 组诊断参数；勿直接以 R2 B 组作为日常 EFI。**
+> **安全更新（2026-11-21）：旧 V4 B 组发生过开机三屏全黑，当时日志没有记录到恢复事务。现有 R3 在真实 FB1 Doze→Wake 中使用严限次的原生 SCDC 重新验证，并补足失败后 4K30 的受控清理；RELEASE 和 221 项软件测试通过，但未完成实机验证。请使用独立测试 EFI，优先核实 A 组能正常启动，不能直接将 B 组作为日常 EFI。**
 >
-> [V4 PowerWake R2 真实 Doze/Wake 修复候选](wexwakev4/README.md) · [R2 RELEASE + 221/221 软件测试通过](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44894808003) · [R2 独立构建包](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44894808003/artifacts/14702684653) · [原 Unified RC1](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/integration/wex-0.8.3-yoga-unified-rc1)
+> [V4 R3 HDMI Session 状态恢复说明](wexwakev4/README.md) · [R3 RELEASE + 221/221 软件回归通过](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44896752393) · [R3 独立 Kext 构建包](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44896752393/artifacts/14704845641) · [原 Unified RC1](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/integration/wex-0.8.3-yoga-unified-rc1)
 
 ---
 
