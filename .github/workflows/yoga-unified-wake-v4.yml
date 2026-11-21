@@ -166,7 +166,7 @@ jobs:
           strings "$KEXT/Contents/MacOS/WhateverXe" | grep -F -- 'WEXYogaHDMI2WakeLast' > /dev/null
           strings "$KEXT/Contents/MacOS/WhateverXe" | grep -F -- 'WEXYogaHDMI2WakePowerLast' > /dev/null
           strings "$KEXT/Contents/MacOS/WhateverXe" | grep -F -- 'WEXYogaHDMI2WakeActionLast' > /dev/null
-          strings "$KEXT/Contents/MacOS/WhateverXe" | grep -F -- 'WEXYogaHDMI2WakeMissingCTAAtGen' > /dev/null || true
+          strings "$KEXT/Contents/MacOS/WhateverXe" | grep -F -- 'WEXYogaHDMI2WakeRejectLast' > /dev/null
           cp wexwakev4/README.md dist/README.md
           cp wex4k60/compare.py dist/compare.py
           cp wex4k60/collect.sh dist/collect.sh
