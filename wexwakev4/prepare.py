@@ -25,6 +25,7 @@ WAKE_STATE = r'''
 // A fresh, byte-identical 128-byte base EDID + original native owner are required
 // before one-time revalidation; no fallback to a guessed sink or arbitrary EDID.
 #include <mach/mach_time.h>
+#include <kern/clock.h>
 #include "kern_yoga_hdmi2_wake_policy.hpp"
 static bool yogaHDMI2WakeDiag {},yogaHDMI2WakeRecover {};
 static uint8_t yogaHDMI2WakeCurrentBase[128] {};
@@ -39,6 +40,27 @@ struct YogaHDMI2WakeProven {
 };
 static YogaHDMI2WakeProven yogaHDMI2WakeProven {};
 static uint32_t yogaHDMI2WakeSequence {};
+static volatile uint64_t yogaHDMI2WakeFirstGoodHighAt {};
+static volatile uint64_t yogaHDMI2WakeObservedHDMIOffAt {};
+static volatile uint32_t yogaHDMI2WakeLastGoodPipe {3U};
+static volatile uint32_t yogaHDMI2WakeObservedOffPipe {3U};
+// This is not proof of actual light or real system sleep: require BOTH
+// a 90-second post-first-good interval and a >=3-second observed HDMI-B off.
+// The existing native owner and exact same-EDID/CTA checks are still required.
+static inline uint32_t yogaHDMI2WakeTimeGuard(uint32_t pipe) {
+    const auto first=__atomic_load_n(&yogaHDMI2WakeFirstGoodHighAt,__ATOMIC_ACQUIRE);
+    const auto off=__atomic_load_n(&yogaHDMI2WakeObservedHDMIOffAt,__ATOMIC_ACQUIRE);
+    const auto goodPipe=__atomic_load_n(&yogaHDMI2WakeLastGoodPipe,__ATOMIC_ACQUIRE);
+    const auto offPipe=__atomic_load_n(&yogaHDMI2WakeObservedOffPipe,__ATOMIC_ACQUIRE);
+    if(!first || !off || goodPipe!=pipe || offPipe!=pipe || off<=first)return 0;
+    const auto now=mach_absolute_time();
+    if(now<=off)return 0;
+    uint64_t firstNs=0,offNs=0;
+    absolutetime_to_nanoseconds(now-first,&firstNs);
+    absolutetime_to_nanoseconds(now-off,&offNs);
+    return (firstNs>=90000000000ULL?1U:0U) |
+        (offNs>=3000000000ULL?2U:0U);
+}
 // schema,seq,mach_absolute_time,event,generation,pipe,pixelHz,status,
 // flags,maxKHz,attemptGeneration,armedPipe. Event: 1 base,2 CTA,
 // 3 capability rejection,4 recovery try,5 recovered,6 recovery failed.
@@ -52,6 +74,11 @@ static inline void yogaHDMI2WakeRecord(uint32_t event,uint32_t generation,
         __atomic_load_n(&yogaHDMI2ArmedPipe,__ATOMIC_ACQUIRE)};
     auto root=IORegistryEntry::getRegistryRoot();
     root->setProperty("WEXYogaHDMI2WakeLast",rec,sizeof(rec));
+    // Preserve the last decisive failure/repair even if CTA reads arrive
+    // later and overwrite WEXYogaHDMI2WakeLast.
+    if(event==3U)root->setProperty("WEXYogaHDMI2WakeRejectLast",rec,sizeof(rec));
+    if(event>=4U && event<=6U)
+        root->setProperty("WEXYogaHDMI2WakeActionLast",rec,sizeof(rec));
     if(seq<=16U) {
         char key[48];snprintf(key,sizeof(key),"WEXYogaHDMI2WakeFirst%u",seq);
         root->setProperty(key,rec,sizeof(rec));
@@ -85,8 +112,13 @@ static inline void yogaHDMI2ObserveDDC(OSObject *port,uint32_t block,
         // Never carry last-good capabilities across any other sink/base EDID.
         if(yogaHDMI2WakeProven.valid &&
            (yogaHDMI2WakeProven.port!=port || !validBase ||
-            memcmp(yogaHDMI2WakeCurrentBase,yogaHDMI2WakeProven.base,128)))
+            memcmp(yogaHDMI2WakeCurrentBase,yogaHDMI2WakeProven.base,128))) {
             yogaHDMI2WakeProven.valid=false;
+            __atomic_store_n(&yogaHDMI2WakeFirstGoodHighAt,0ULL,__ATOMIC_RELEASE);
+            __atomic_store_n(&yogaHDMI2WakeLastGoodPipe,3U,__ATOMIC_RELEASE);
+            __atomic_store_n(&yogaHDMI2WakeObservedHDMIOffAt,0ULL,__ATOMIC_RELEASE);
+            __atomic_store_n(&yogaHDMI2WakeObservedOffPipe,3U,__ATOMIC_RELEASE);
+        }
         __atomic_store_n(&yogaHDMI2ArmedPipe,3U,__ATOMIC_RELEASE);
     } else if(yogaHDMI2Live.baseSeen && yogaHDMI2Live.port==port) {
         // The original observer only runs on successful native DDC reads.
@@ -143,7 +175,13 @@ def patch_candidate(header):
         yogaHDMI2WakeProven.port==port &&
         !memcmp(yogaHDMI2WakeCurrentBase,yogaHDMI2WakeProven.base,128);
     YogaHDMI2Wake::Eligibility eligible {};
+    // Do not allow a boot/HPD modeset to use preserved CTA information.
+    // A prior HDMI-B output disable must have been observed and aged.
+    const auto wakeTimeBits=yogaHDMI2WakeRecover && allowWrite ?
+        yogaHDMI2WakeTimeGuard(pipe):0U;
     eligible.activeHDMI2=yogaHDMI2WakeRecover && allowWrite;
+    eligible.postBootMature=bool(wakeTimeBits&1U);
+    eligible.observedLongHDMIOff=bool(wakeTimeBits&2U);
     eligible.highTMDS=pixelHz>YogaHDMI2::HighTMDSHz;
     eligible.sameNativePort=same && yogaHDMI2WakeProven.port==port;
     eligible.freshValidBase=yogaHDMI2Live.baseSeen &&
@@ -163,7 +201,14 @@ def patch_candidate(header):
     wakeFlags=(same?1U:0U)|(yogaHDMI2WakeBaseExact?2U:0U)|
         (yogaHDMI2WakeCTASeen?4U:0U)|
         (yogaHDMI2WakeProven.valid?8U:0U)|
-        (wakeCandidate?32U:0U);
+        (wakeCandidate?32U:0U)|
+        ((wakeTimeBits&1U)?64U:0U)|
+        ((wakeTimeBits&2U)?128U:0U)|
+        (caps.valid?256U:0U)|
+        (caps.hdmi?512U:0U)|
+        (caps.scdc?1024U:0U)|
+        (caps.maxKHz>340000?2048U:0U)|
+        (yogaHDMI2WakeRecover?4096U:0U);
     wakeAttemptGeneration=yogaHDMI2WakeProven.attemptedGeneration;
     IOSimpleLockUnlock(lock);
     if(!same || !caps.valid || !caps.hdmi || !caps.scdc ||
@@ -223,6 +268,12 @@ def patch_candidate(header):
                 yogaHDMI2WakeProven.generation=generation;
                 yogaHDMI2WakeProven.attemptedGeneration=0;
                 yogaHDMI2WakeProven.valid=true;
+                if(!__atomic_load_n(&yogaHDMI2WakeFirstGoodHighAt,__ATOMIC_ACQUIRE))
+                    __atomic_store_n(&yogaHDMI2WakeFirstGoodHighAt,
+                        mach_absolute_time(),__ATOMIC_RELEASE);
+                __atomic_store_n(&yogaHDMI2WakeLastGoodPipe,pipe,__ATOMIC_RELEASE);
+                __atomic_store_n(&yogaHDMI2WakeObservedHDMIOffAt,0ULL,__ATOMIC_RELEASE);
+                __atomic_store_n(&yogaHDMI2WakeObservedOffPipe,3U,__ATOMIC_RELEASE);
             }
             IOSimpleLockUnlock(lock);
         }
@@ -253,6 +304,24 @@ def patch_cpp(source):
             root->setProperty("WEXYogaHDMI2WakeDiagEnabled",yogaHDMI2WakeDiag);
             root->setProperty("WEXYogaHDMI2WakeRecoverEnabled",yogaHDMI2WakeRecover);'''
     source=once(source,needle,replacement,"V4 opt-in wake flag init after V3 patch validation")
+    # Reuse the already installed V3 MMIO-write wrapper in a passive mode:
+    # when the exact LAST KNOWN HDMI-B transcoder has an enable=0 write,
+    # record time only. Never alter reg/value, no HPD poke and no modeset.
+    source=once(source,
+        "    if(callbackXE->yogaHDMI2SafeRequested && access==display13FBPower.access &&",
+        r"""    if(yogaHDMI2WakeRecover && access==display13FBPower.access) {
+        const auto knownPipe=__atomic_load_n(&yogaHDMI2WakeLastGoodPipe,__ATOMIC_ACQUIRE);
+        if(knownPipe<3U && reg==0x60400U+0x1000U*knownPipe &&
+           !(value&0x80000000U) &&
+           __atomic_load_n(&yogaHDMI2WakeFirstGoodHighAt,__ATOMIC_ACQUIRE)) {
+            __atomic_store_n(&yogaHDMI2WakeObservedHDMIOffAt,
+                mach_absolute_time(),__ATOMIC_RELEASE);
+            __atomic_store_n(&yogaHDMI2WakeObservedOffPipe,
+                knownPipe,__ATOMIC_RELEASE);
+        }
+    }
+    if(callbackXE->yogaHDMI2SafeRequested && access==display13FBPower.access &&""",
+        "V4 passive HDMI-B output-off timing observation")
     return source
 
 def patch_fixtures(raw):
