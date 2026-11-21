@@ -71,7 +71,10 @@ def session_policy(s):
 def native_power(s):
     s=once(s,
         '''    const bool yogaPowerTarget=callbackXE && fb &&''',
-        '''    const uint32_t yogaPowerIndex=fb ?
+        '''    // Read the FB index only after the native owner validates the object.
+    // A transient non-owned pointer must never be dereferenced here.
+    const uint32_t yogaPowerIndex=(callbackXE && fb &&
+        callbackXE->ownedDisplay13Framebuffer(fb)) ?
         Display13FBMemory::field<uint32_t>(fb,0x1DC):3U;
     const uint32_t yogaPowerBoundPipe=
         __atomic_load_n(&yogaHDMI2WakeLastGoodPipe,__ATOMIC_ACQUIRE);
