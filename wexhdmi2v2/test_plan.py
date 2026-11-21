@@ -42,3 +42,15 @@ assert 'status=55; // WM' in source
 print("PASS: pinned original LightUpTMDS CALL 0x4FFB6 -> 0x50B22")
 print("PASS: no new global LightUpTMDS route; default-off V2 callsite flags")
 print("PASS: original WM HDMI2 I2C disabled; owner lock, nonblocking power lock, SCDC readback required")
+
+# The prior V2 observe flag still installed the unsafe native CALL patch.
+# The new observer mode must exit before the patch branch.
+assert 'if(yogaHDMI2CallsiteObserve) {' in source
+assert 'state=6;' in source
+assert 'WEXYogaHDMI2PassiveReady' in source
+p=source.index('if(yogaHDMI2CallsiteObserve) {')
+q=source.index('patcher.routeBlock(address+callOffset,patchedCall,sizeof(patchedCall));')
+assert p<q
+assert 'else {' in source[p:q]
+assert 'state!=5 && state!=6' in source
+print("PASS: observer is strictly passive, only explicit safe mode can alter native CALL")
