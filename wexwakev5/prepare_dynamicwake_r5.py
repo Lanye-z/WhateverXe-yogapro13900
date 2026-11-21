@@ -87,8 +87,10 @@ def native_power(s):
         '''        YogaHDMI2R5::sameBoundPipe(yogaPowerIndex,yogaPowerBoundPipe);''',
         "replace fixed FB1 power target")
     s=once(s,
-        '''        __atomic_load_n(&yogaHDMI2WakeNativeFB1DozeAt,__ATOMIC_ACQUIRE)!=0;''',
-        '''        __atomic_load_n(&yogaHDMI2WakeNativeFB1DozeAt,__ATOMIC_ACQUIRE)!=0 &&
+        '''        yogaPowerPrior==1U &&
+        __atomic_load_n(&yogaHDMI2WakeNativeFB1DozeAt,__ATOMIC_ACQUIRE)!=0;''',
+        '''        yogaPowerPrior==1U &&
+        __atomic_load_n(&yogaHDMI2WakeNativeFB1DozeAt,__ATOMIC_ACQUIRE)!=0 &&
         YogaHDMI2R5::samePowerObject(
             __atomic_load_n(&yogaHDMI2WakeDozeFB,__ATOMIC_ACQUIRE),
             reinterpret_cast<uintptr_t>(fb));''',
