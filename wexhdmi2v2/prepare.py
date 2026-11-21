@@ -190,6 +190,11 @@ uint32_t XE::yogaHDMI2Callsite(void *controller,void *rawFB,void *rawPath,const 
     cpp.write_text(s)
     fixtures=source/"tests/fixtures/boot_argument_names.json"
     j=json.loads(fixtures.read_text())
+    # Retire the V1 WM flags from the fixture namespace as well as the
+    # production flag readers. The upstream test requires exact parity.
+    for obsolete in ("-wex-yoga-hdmi2-safe","-wex-yoga-hdmi2-observe"):
+        if obsolete not in j:raise RuntimeError("V1 fixture missing: "+obsolete)
+        del j[obsolete]
     for x in ("-wex-yoga-hdmi2-callsite-safe","-wex-yoga-hdmi2-callsite-observe"):
         if x in j:raise RuntimeError("duplicate boot arg: "+x)
         j[x]=[]
