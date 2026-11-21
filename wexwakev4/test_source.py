@@ -93,7 +93,8 @@ ddc=h.split('static inline void yogaHDMI2ObserveDDC(',1)[1].split('// Native con
 assert "prepareSCDC(" not in ddc and "request.sendAddress" not in ddc
 assert "yogaHDMI2WakeRecord(" in ddc
 assert "setProperty" not in ddc  # emitter called only after lock release
-assert h.index("IOSimpleLockUnlock(lock);\n    yogaHDMI2WakeRecord") > h.index("static inline void yogaHDMI2ObserveDDC")
+assert h.index("IOSimpleLockUnlock(lock);\n    __atomic_store_n(&yogaHDMI2R4LastDDCGen,gen") > h.index("static inline void yogaHDMI2ObserveDDC")
+assert h.index("yogaHDMI2WakeRecord(block==1?1U:2U") > h.index("__atomic_store_n(&yogaHDMI2R4LastDDCGen,gen")
 assert "patcher.routeBlock" not in h
 assert "WEXYogaHDMI2Callsite" in s
 print("PASS: V4 R2 real FB1 Doze->Wake required + exact sink + native SCDC transaction")
