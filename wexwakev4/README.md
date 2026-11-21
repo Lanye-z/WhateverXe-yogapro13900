@@ -1,12 +1,33 @@
 # WhateverXe 0.8.3 — Yoga Unified Wake V4（2026-11-21）
 
-> **重要：B 组唤醒恢复候选已暂停实机使用（2026-11-21）**。用户报告添加 `-wex-yoga-hdmi2-wake-recover` 后三块显示器全部熄灭，系统仍能远程访问。尚未取得该次的完整诊断日志，也未确认是启动时立即发生还是经过 Display Sleep/Wake 后发生；不能宣称根因已确定。**请不要再使用 B 组参数，不要将 V4 恢复逻辑默认开启。** 先通过远程诊断采集 `after_wake`，然后删除该参数并恢复到原 A 组或原 V3/Unified RC1 EFI。先前 221/221 软件测试通过不代表内核显示路径的实机安全性。
+> **历史安全警告：旧 V4 B 组开机三屏全黑（2026-11-21），仍不得把 R2 的软件测试通过视为实机修复确认。** 用户报告添加 `-wex-yoga-hdmi2-wake-recover` 后三块显示器全部熄灭，系统仍能远程访问。尚未取得该次的完整诊断日志，也未确认是启动时立即发生还是经过 Display Sleep/Wake 后发生；不能宣称根因已确定。**请不要再使用 B 组参数，不要将 V4 恢复逻辑默认开启。** 先通过远程诊断采集 `after_wake`，然后删除该参数并恢复到原 A 组或原 V3/Unified RC1 EFI。先前 221/221 软件测试通过不代表内核显示路径的实机安全性。
 
 
 
 **实验候选，不是已实机确认的唤醒修复。** 本分支从已通过 CI 的 [Yoga Unified RC1](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/integration/wex-0.8.3-yoga-unified-rc1) 的 **提交 `72ee3bca81c17f97382707ddf51b6818d295a3d7`** 派生。仅新增 `wexwakev4/` 的最小补丁和独立 CI；未覆盖 Unified RC1、原 V3、旧 `main` 或任何现有 EFI。
 
-## V4 BootSafe R1 — 本分支最新候选（仍需实机验证）
+## V4 PowerWake R2 — 基于真实 FB1 Doze→Wake 的修复候选（当前分支）
+
+**18:21 最新 A 组证据**：macOS 于 18:21:06 将 FB0/FB1/FB2 从 Wake 转入 Doze；18:21:14 DDI1 HPD 低→高；18:21:24 FB1 恢复 533250000 Hz 4K60 的 V3 CALL-site 返回 **status=10**。记录 \`WEXYogaHDMI2WakeRejectLast\` 显示 generation=25、flags=0x0B、maxKHz=0、armedPipe=3（相同物理 HDMI-B、AOC 有效 EDID 基本块、先前存在真实成功会话，**当前 CTA 能力未形成**）。稍后 \`WakeLast\` 为 generation=29、flags=0x1F、maxKHz=600000，但此时原生高速 modeset 已结束。
+
+这直接支持 **EDID/CTA 高速能力就绪晚于原生 4K60 LightUpTMDS** 的竞态；仅在 30Hz 与 60Hz 间切换可再次触发成功模式设置，但第一次切 30Hz 未必重建完整的接收端高速状态。问题不是用户主动刷新率设置错误。
+
+R1 原门控“观察到 HDMI-B transcoder bit31 清零”在 Display Sleep 的 Doze 流程中并非可靠信号；R2 改为直接观察**已有的** \`XE::wrapDisplay13SetPowerState\` 中原生 FB1 电源状态：
+
+1. 只有成功经历本机原生 4K60 SCDC 准备 \`100\` 后，才记录一份同一 AOC 的已验证能力缓存；
+2. FB1 原生 Wake(2)→Doze(1) 电源回调**返回成功**后记录 Doze 时刻；
+3. 只有 FB1 原生 Doze(1)→Wake(2) 的回调正在运行、距离首次高速成功 **>=90 秒**、距离 Doze **>=3 秒**，才临时允许经过完整 EDID 比较的缓存协商候选；
+4. 之前的全部硬条件保留：同一物理 HDMI-B、完全相同 128 字节 EDID、当前仅已重取基本块而没有新 CTA、一次/代、原生 controller owner lock、原生 SCDC version/config 读写读回；失败必须沿用 V3 原始结果而不能伪造原生 modeset 成功；
+5. 改动只落在 WhateverXe **已经使用的 Framebuffer Power callback** 与现有 V3 CALL-site 的资格判断，**没有安装新 Hook，没有定时器、没有后台线程、没有主动触发 modeset，也没有在 DDC 回调中重入 I2C**；
+6. 删除 R1 推测性 MMIO-output-off 观察逻辑。新增 \`WEXYogaHDMI2WakePowerLast\` 记录最后一次 FB1 原生 Doze/ Wake 电源回调；\`WakeRejectLast\`、\`WakeActionLast\` 继续保留。诊断 flags 的 bit6 表示高速成功满 90 秒，bit7 表示至少 3 秒的**已确认原生 Doze→Wake**（不再代表 MMIO 输出关闭）。
+
+新 RELEASE 构建名：\`WhateverXe_0.8.3_YOGA_UNIFIED_WAKE_V4_POWERWAKE_R2_TEST.zip\`，包含原 Unified RC1 的五项默认配置和 V3 HDMI2 Callsite Safe。**R2 目前仅为软硬件隔离的修复候选，尚无实机结果**。
+
+**风险说明：** 上一个 B 组开机三屏全黑时根本没有记录到恢复动作（没有状态 110），所以即使 R2 在开机阶段拒绝使用旧 CTA，也不能保证不再触发 Display13/DBUF/WM 多屏异常。首先用 **R2 A 组（只诊断）**启动并采集一次 Doze/Wake，看 \`WEXYogaHDMI2WakePowerLast\` 是否确实记录成功的 FB1 Power(2→1→2)；在确保 A 组三屏正常、有外置 EFI 回退和远程访问的前提下，才考虑 B 组。**不要复用旧 V4 B/R1 的包做混合对比**。
+
+---
+
+## V4 BootSafe R1 — 历史候选（已由 R2 替代）
 
 基于 17:27 A 组和 17:43 B 组原始诊断 ZIP，B 组**重启后首次进入桌面就三屏全黑**，并非显示器休眠之后发生。B 组仅记录到一次 V3 CALL-site `status=100`，**没有恢复尝试事件 4 或恢复状态 110**；随后 DDI1 HPD 抖动，FB0/FB2 记录 `0xe00002d8`，且 `N97FBDBUFLayoutFailure` / WM Failure Inputs 出现。不能因此声称新 SCDC 重试导致或修好了三屏全黑。
 
