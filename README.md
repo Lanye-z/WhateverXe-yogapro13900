@@ -4,6 +4,8 @@
 >
 > V4 新增 `-wex-yoga-hdmi2-wake-diag`（诊断）和 `-wex-yoga-hdmi2-wake-recover`（严格限次恢复候选）。**两项默认均关闭**，不得认为 V4 已经通过实机唤醒验证。用于复盘第二次 Display Wake 后 AOC 4K60 黑屏、随后手动 30→60Hz 可恢复的问题。
 >
+> **安全更新（2026-11-21）：开启 `-wex-yoga-hdmi2-wake-recover` 的 B 组已经在实机出现三屏全灭，暂时停用。请仅考虑 A 组只读诊断；不要从软件测试通过推断 B 组可安全安装。原始正常 EFI 请保持可回退。**
+>
 > [V4 机制、参数和回退说明](wexwakev4/README.md) · [V4 构建与 221/221 测试通过](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44887191263) · [V4 Kext 实验包](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44887191263/artifacts/14700580770) · [原 Unified RC1](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/integration/wex-0.8.3-yoga-unified-rc1)
 
 ---
