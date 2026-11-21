@@ -23,8 +23,8 @@ assert 'orgDisplay13HDMI2TMDS' not in source
 # TC-native checks innerCall [0x4ffb6:7] against the original opcode;
 # V2 must not rewrite its first five bytes inside processOutput beforehand.
 tc=Path("Source/WhateverXe/kern_display13_tc_native.hpp").read_text()
-assert 'innerCallOffset=0x4ffb6' in tc.lower()
-assert 'innerCall[]={0xe8,0x67,0x0b,0x00,0x00,0xeb,0x1c}' in tc.lower()
+assert 'innercalloffset=0x4ffb6' in tc.lower()
+assert 'innercall[]={0xe8,0x67,0x0b,0x00,0x00,0xeb,0x1c}' in tc.lower()
 tc_call='display13FBTCHooksReady=processDisplay13FramebufferTC(patcher,index,address,size);'
 modify='patcher.routeBlock(address+callOffset,patchedCall,sizeof(patchedCall));'
 assert source.count(tc_call)==1 and source.count(modify)==1
