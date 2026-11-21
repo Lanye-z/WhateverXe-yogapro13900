@@ -1,5 +1,10 @@
 # Yoga 82Y7 / HDMI2 safe 实机失败报告（2026-11-21 14:40）
 
+> **2026-11-21 源码复核后撤销 A9 实验：** 原生 Intel Display13 参考实现 `Wtrwx/Lenovo-Air14-IRP8-Hackintosh` 中 `kern_display13_hdmi_scdc.hpp::scdcReadRequest` 明确使用 `sendAddress=0xA8; replyAddress=0xA8`；其 `kern_tgl_gmbus.hpp` 也把 `0xA8/0xA8` 作为 SCDC 的专用合格格式。再考虑本机成功 EDID 读取用了 `replyAddress=0xA0`，故原先拟议的 `0xA9` 修改不能认定安全或正确，**现已从源码生成器撤销，未交付该 Kext**。本分支仅保留调查记录和静态检查。
+
+> 本次 2 笔 SCDC GMBUS 记录均是 `0xE00002ED`。第一笔原生 GMBUS 软件快照 `first=0x0800,last=0x8A00,combined=0x8A00`；第二笔 `first=0x0400,last=0x8600,combined=0x8E00`。Intel GMBUS2 的 bit10=NAK、bit11=HW_RDY；第二笔出现 NAK 标志。**重点应改为分析请求中的 ACK／就绪等待、事务阶段和原生状态快照**，而非盲目改写地址。参考 `Wtrwx` 对原生 donor GMBUS 的 exact read/write wait boundaries 和条件性有限轮询，但不得直接复制未经本机实测的 wait hook。
+
+
 证据：`Yoga_HDMI2_Safe_Failure_20261121_144015.zip`。用户于切到4K60黑屏，再恢复4K30、所有三屏正常显示后采集，**没有再重现此前切回后外屏彻底消失的问题**。
 
 ## 已有直接证据
