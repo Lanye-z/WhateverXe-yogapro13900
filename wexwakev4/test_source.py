@@ -30,10 +30,12 @@ assert "YogaHDMI2Wake::mayRecover(eligible)" in h
 assert "capabilitiesMissing && YogaHDMI2Wake::mayRecover(eligible)" in h
 assert "yogaHDMI2WakeProven.attemptedGeneration=generation" in h
 assert "yogaHDMI2WakeTimeGuard(pipe)" in h
-assert "absolutetime_to_nanoseconds(now-first,&firstNs)" in h
-assert "firstNs>=90000000000ULL" in h and "dozeNs>=3000000000ULL" in h
-assert "eligible.postBootMature=bool(wakeTimeBits&1U);" in h
+assert "YogaHDMI2Wake::qualifyPowerEvidence(p)" in h
+assert "90000000000ULL" not in h and "3000000000ULL" not in h
+assert "eligible.priorNativeHighConfirmed=bool(wakeTimeBits&1U);" in h
 assert "eligible.nativeDozeWakeVerified=bool(wakeTimeBits&2U);" in h
+assert "yogaHDMI2WakeLastGoodPipe" in h
+assert "yogaHDMI2WakeFirstGoodHighAt" in h
 assert "WEXYogaHDMI2WakeRejectLast" in h
 assert "WEXYogaHDMI2WakeActionLast" in h
 # R2 completely removes the R1 speculative output-off MMIO observer.
@@ -99,3 +101,35 @@ print("PASS: optional V4 wake controls require V3 safe and fully installed calls
 print("PASS: Unified RC1 defaults, Metal TC ordering and DDI5 SST retained")
 
 print("PASS R3: original native HDMI callsite, readback and A-group behavior preserved; no DDI5/SST changes")
+
+# R4: B-group may recover on first *short* genuine Doze->Wake; still must
+# have one real prior 4K60 SCDC success, exact AOC EDID and native locks.
+# A-group is diagnostic-only (recoverRequested remains false).
+assert "YogaHDMI2Wake::qualifyPowerEvidence(p)" in h
+assert "p.nativeDozeToWakeWindow=" in h
+assert "p.nativeDozeAt=" in h
+assert "eligible.activeHDMI2=yogaHDMI2WakeRecover && allowWrite;" in h
+assert "yogaHDMI2WakeProven.valid" in h
+assert "yogaHDMI2WakeCTASeen" in h
+assert "yogaHDMI2WakeR4" not in h
+assert h.count("YogaHDMI2::prepareSCDC(")==1
+# Historical confirmation is not an authorization: source and sink generation
+# checks and previous armedPipe invalidation must remain in native candidate.
+assert "__atomic_store_n(&yogaHDMI2ArmedPipe,3U,__ATOMIC_RELEASE);" in h
+assert "yogaHDMI2R4LastSCDCSuccessGen" in h
+assert "yogaHDMI2R4LastSCDCSuccessStatus" in h
+assert "yogaHDMI2R4LastDDCGen" in h
+assert "yogaHDMI2R4LastDDCFlags" in h
+assert "yogaHDMI2R4LastDDCMaxKHz" in h
+# Last-32 CALL-site history with monotonic timestamps and bounded key count.
+assert 'WEXYogaHDMI2CallsiteHist%02u' in s
+assert '"WEXYogaHDMI2WakePowerHist%02u"' in native_power
+assert "(count-1U)%32U+1U" in s
+assert "(record[1]-1ULL)%32ULL+1ULL" in native_power
+assert "yogaCallStartedAt" in s
+assert "if(yogaHDMI2WakeDiag)" in s
+assert "IORegistryEntry::getRegistryRoot()->setProperty(key,trace,sizeof(trace))" in s
+# Do not modify other framebuffer modes or install any new call sites.
+assert s.count('patcher.routeBlock(address+callOffset,patchedCall,sizeof(patchedCall));')==1
+assert native_power.count('FunctionCast(wrapDisplay13SetPowerState,callbackXE->orgDSIAttributes[2])(fb,state);')==1
+print("PASS R4: native-power evidence gating without 90s/3s, bounded 32+32 trace, no new hooks")
