@@ -113,10 +113,10 @@ uint32_t XE::yogaHDMI2Callsite(void *controller,void *rawFB,void *rawPath,const 
             if(status==100 &&
                __atomic_load_n(&yogaHDMI2ArmedPipe,__ATOMIC_ACQUIRE)==pipe) {
                 shadowAfter=shadowBefore|YogaHDMI2::SourceFlags;
-                Display13FBMemory::field<uint32_t>(path,0x12C)=shadowAfter;
+                *reinterpret_cast<uint32_t *>(static_cast<uint8_t *>(rawPath)+0x12C)=shadowAfter;
             } else if(status==101) {
                 shadowAfter=shadowBefore&~YogaHDMI2::SourceFlags;
-                Display13FBMemory::field<uint32_t>(path,0x12C)=shadowAfter;
+                *reinterpret_cast<uint32_t *>(static_cast<uint8_t *>(rawPath)+0x12C)=shadowAfter;
             }
         }
     }
