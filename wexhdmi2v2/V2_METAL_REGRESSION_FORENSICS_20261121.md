@@ -30,19 +30,27 @@ state=... && !memcmp(address+callOffset,patchedCall,5) ? 5:4;
 
 核查 Lilu 真正的 `KernelPatcher::routeBlock` 实现（`acidanthera/Lilu/Lilu/Sources/kern_patcher.cpp`）：在默认 `buildWrapper=false` 下，直接调用 `lilu_os_memcpy(from,opcodes,opnum)` 覆写原生代码，**不创建原函数包装/trampoline，也不保存原始指令**。因此所谓 observe 模式并非无侵入；存在二进制代码改写/并发执行窗口方面的风险。但**尚不能证明正是并发 patch 导致这次 Metal 丢失**。
 
-### 1.2 已证实的诊断盲区
+### 1.2 原生 LightUpTMDS 的直接调用语义被改变（可由 x86 CALL 机制严格推出）
+
+静态反汇编确认 Apple 父函数原来在 `+0x4FFB6` 直接 CALL `LightUpTMDS(+0x50B22)`，`LightUpTMDS` 入口看到的**返回地址**原本就是 `image+0x4FFBB`。
+
+V2 将这一条 CALL 改为 CALL `XE::yogaHDMI2Callsite`，再由该 helper 用 C++ 函数指针执行 `original(...)`。**即使四个表面参数与返回值都相同，原生 LightUpTMDS 入口看到的返回 PC 已不再是 `image+0x4FFBB`，而是在 WhateverXe helper 内；调用栈也多了一层。** 这是无条件成立的机器级差异，不需要实机采集就能确认。以往同类参考工程还明确用 `+0x4FFBB` return-PC 限定 Hook 范围；因此不能把新 CALL 桥接描述为与原生执行完全等价。
+
+这可能影响依赖调用方/返回地址、栈状态或锁时序的驱动代码，但**还没有证据证明这种 return-PC 差异是此次 Metal 失效的最终直接原因**。下一次设计不得假定函数指针回调原生方法就等价于原有的单条 CALL 指令。
+
+### 1.3 已证实的诊断盲区
 
 `XE::yogaHDMI2Callsite` 在调用 `original(controller,rawFB,rawPath,rawTiming)` **之后**才通过 IORegistry 发布 `CallsiteLast` / `First*`。所以完整 grep 中缺少属性，至少有四种可能：未进入 helper、进入后被阻断/异常、原生调用未返回、属性发布失败。**不能仅凭缺少 Last 判断 CALL 没执行**。
 
 对于安全回滚，后续如果重构，只能先记录调用进入且避免锁/IORegistry 死锁；但这不授权继续在现有坏 V2 上增设侵入 Hook。
 
-### 1.3 这不是 V1 的重复故障
+### 1.4 这不是 V1 的重复故障
 
 V1 4K60 黑屏时 Metal 正常，有 `WEXYogaHDMI2HighLast=[1,22,1,533250000,5,3]`，其 SCDC 在 WM 处因为原生 owner lock 未持有而在写前中止。V2 在手动选 4K60 前已 Metal 失效，`CallsiteLast` 缺失，因此**没有任何证据能断言这次问题是接收端 SCDC 0xA8 未响应造成的**。
 
 源代码上 V2 low-mode 条件为 `pixelHz<=340MHz && armedPipe>=3` 时直接返回52、不会调用新增 SCDC；但由于**本次启动过程中实际尝试的 HDMI 时序没有采集**，不能断言启动时一定走的是低频路径。
 
-### 1.4 软件 CI 的覆盖空白
+### 1.5 软件 CI 的覆盖空白
 
 成功运行 SHA `3ab20204c384dd3b45902c0c4bd0c2b136e7db1d`、Actions `44869605258`：RELEASE、Compat、221/221 通过，上传了实验 Kext。测试验证了静态机器码/符号与纯逻辑；**没有重演 Apple 的真实同步锁所有权、硬件启用顺序、其他显卡加速 Hook 与多屏路径的相互作用**。绝不能把 CI 绿色解释为实机安全。
 
