@@ -15,7 +15,9 @@ struct Eligibility {
     bool sameCompleteBaseEDID {};
     bool newGeneration {};
     bool alreadyAttempted {};
-    bool postBootMature {}; // after one stable native high-rate output\n    bool observedLongHDMIOff {}; // HDMI-B transcoder off, not an HPD bounce\n    bool preservedCapsValid {};
+    bool postBootMature {}; // after one stable native high-rate output
+    bool observedLongHDMIOff {}; // HDMI-B transcoder off, not an HPD bounce
+    bool preservedCapsValid {};
     bool preservedCapsSCDC {};
     uint32_t preservedMaxKHz {};
 };
@@ -23,7 +25,8 @@ inline bool mayRecover(const Eligibility &s) {
     return s.activeHDMI2 && s.highTMDS && s.sameNativePort &&
         s.freshValidBase && s.exactKnownSink && !s.ctaAlreadySeen &&
         s.provenPriorHighSession && s.sameCompleteBaseEDID &&
-        s.newGeneration && !s.alreadyAttempted &&\n        s.postBootMature && s.observedLongHDMIOff &&
+        s.newGeneration && !s.alreadyAttempted &&
+        s.postBootMature && s.observedLongHDMIOff &&
         s.preservedCapsValid && s.preservedCapsSCDC &&
         s.preservedMaxKHz>340000 && s.preservedMaxKHz<=600000;
 }
