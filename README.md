@@ -41,7 +41,8 @@
 - [统一版 CI：221/221 通过（run 44881256951）](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44881256951)
 - [统一版构建包（artifact 14698092112）](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44881256951/artifacts/14698092112)
 - [详细设计、紧急禁用参数与验证步骤](wexintegrated/README.md)
-- [V3 原生 HDMI2 研究及历史数据](wexhdmi2v2/README.md)
+- [V3 原版实机 4K60 成功记录](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-yoga-hdmi2-scdc-gmbus-wait-v3)
+- [V3 SCDC/GMBUS 技术机制](wexhdmi2v2/SCDC_GMBUS_FIRST9_FIRST12_FIX_20261121.md)
 - [SST 兼容修复机制](wexsst/README.md)
 
 **只在可独立启动的测试 EFI 中替换 WhateverXe.kext**；不要修改已工作的 Graphics 0.4.4、Lilu 或直接覆盖日常 EFI。可用 `-wex-yoga-disable-integrated` 关闭五项默认集成能力（不会关闭显式添加的 Callsite Safe），也可使用详细文档中的逐项禁用参数。出现启动黑屏时优先用原来完整的可启动 EFI 回退。
