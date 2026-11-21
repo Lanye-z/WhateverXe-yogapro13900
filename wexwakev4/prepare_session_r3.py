@@ -36,7 +36,13 @@ static inline bool yogaHDMI2MayReconcileLow(OSObject *port,OSObject *path,
     const auto failed=__atomic_load_n(&yogaHDMI2WakeMissingCTAAtGen,__ATOMIC_ACQUIRE);
     const auto slept=__atomic_load_n(&yogaHDMI2WakeNativeFB1DozeAt,__ATOMIC_ACQUIRE);
     const auto woke=__atomic_load_n(&yogaHDMI2WakeCompletedNativeFB1WakeAt,__ATOMIC_ACQUIRE);
-    const bool nativeWakeCompleted=slept && woke && woke>slept;
+    const auto now=mach_absolute_time();
+    uint64_t wakeAgeNs=0;
+    if(woke && now>woke)absolutetime_to_nanoseconds(now-woke,&wakeAgeNs);
+    // A manually selected 4K30 after failed wake may reconcile for five
+    // minutes, never during startup or across an unrelated later session.
+    const bool nativeWakeCompleted=slept && woke && woke>slept &&
+        now>woke && wakeAgeNs<=300000000000ULL;
     const bool baseMatches=yogaHDMI2WakeProven.valid &&
         yogaHDMI2WakeProven.port==port &&
         !memcmp(yogaHDMI2WakeCurrentBase,yogaHDMI2WakeProven.base,128);
