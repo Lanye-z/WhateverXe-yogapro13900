@@ -6,6 +6,21 @@ or any existing EFI. Starting source is the *exact* November 21 V3 commit
 `f302b39e79ad6be37b4ded52c6c89dd6e01a9142` and the pinned WhateverXe
 0.8.3 / WhateverXe Graphics 0.4.4 baseline.
 
+## 参数与功能对应关系（2026-11-21 校正）
+
+| 功能 | 原 V3 中必须组合的开关 | 本 Unified RC1 |
+| --- | --- | --- |
+| eDP 内屏 3K120 | `-wex-yoga-edp120-admit`（模式准入） + `-wex-yoga-edp120-wm`（保存 120Hz 的启动恢复） | **均默认启用** |
+| AOC 4K 正常颜色 | `-wex-yoga-hdmi-edid-deep8` | **默认启用**；8 bpc，不代表固定 RGB |
+| 机身 HDMI 4K60 | `-wex-yoga-hdmi600`（模式准入） + `-wex-yoga-hdmi2-callsite-safe`（SCDC/GMBUS/高速源端设置） | **HDMI600 默认启用，Callsite Safe 显式 opt-in** |
+| HP G4 扩展坞外屏 | `-wex-yoga-tc5-sst` | **默认启用 SST**；不是 TB4/USB4 或真正的 MST 修复 |
+
+对这台 AOC U27P10，4K60 正常色彩还需要默认开启的 Deep8；它是**颜色修复**，不能替代 HDMI2 4K60 的高速协商步骤。
+
+**实机证据属于原 V3**：AOC OSD 4K60、Metal 2/1536MB、SCDC 准备 `100`、4K30 回退 `101`、HDMI 源端 bit4/bit0 与模式同步。**统一版仅 CI 221/221 通过，仍待独立 EFI 实机验证**。Apple 启动标志阶段三屏反复重配置以及少量 GMBUS NAK 尚未解决。
+
+[Unified RC1 已通过的 GitHub Actions](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44881256951) · [Release 构建包（测试版）](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44881256951/artifacts/14698092112)
+
 ## What is now automatic, with original safety gates intact
 
 | Patch | Integrated default | Existing HW and code validation |
