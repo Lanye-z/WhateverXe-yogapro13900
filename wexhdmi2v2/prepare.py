@@ -186,7 +186,22 @@ uint32_t XE::yogaHDMI2Callsite(void *controller,void *rawFB,void *rawPath,const 
         }
     }
 '''
-    s=once(s,endpart,endpart+install,"V2 single CALL site installer")
+    # CRITICAL ORDERING: processDisplay13FramebufferTC() verifies the entire
+    # original 7-byte innerCall at image+0x4FFB6. Installing the V2 5-byte
+    # patch in processDisplay13FramebufferOutput() beforehand causes TC to
+    # fail-closed, display13Available to reject the backend, and Metal to
+    # fall back to the boot framebuffer (22 MB). The V2 code must NOT mutate
+    # this callsite until after every TC original-byte signature check.
+    tc_anchor='    display13FBTCHooksReady=processDisplay13FramebufferTC(patcher,index,address,size);'
+    safe_install=install.replace(
+        'if(yogaHDMI2NativeI2C && ready && size>targetOffset+16 &&',
+        'if(yogaHDMI2NativeI2C && display13FBOutputHooksReady && '
+        'display13FBTCHooksReady && size>targetOffset+16 &&')
+    assert '&& ready &&' not in safe_install
+    s=once(s,tc_anchor,tc_anchor+safe_install,
+           "V2 deferred CALL installer after TC signature and route checks")
+    assert s.index(tc_anchor)<s.index('patcher.routeBlock(address+callOffset,patchedCall,sizeof(patchedCall));')
+    assert s.count('patcher.routeBlock(address+callOffset,patchedCall,sizeof(patchedCall));')==1
     cpp.write_text(s)
     fixtures=source/"tests/fixtures/boot_argument_names.json"
     j=json.loads(fixtures.read_text())
