@@ -1,0 +1,98 @@
+# WhateverXe 0.8.3 — Yoga Unified Wake V4（2026-11-21）
+
+**实验候选，不是已实机确认的唤醒修复。** 本分支从已通过 CI 的 [Yoga Unified RC1](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/integration/wex-0.8.3-yoga-unified-rc1) 的 **提交 `72ee3bca81c17f97382707ddf51b6818d295a3d7`** 派生。仅新增 `wexwakev4/` 的最小补丁和独立 CI；未覆盖 Unified RC1、原 V3、旧 `main` 或任何现有 EFI。
+
+## 功能基线：一份 Kext，不恢复旧启动参数
+
+| 功能 | 本 V4 默认行为 |
+| --- | --- |
+| 内屏 3K120 | 默认启用 **eDP120 Admit + WM_ONLY** |
+| AOC HDMI 伪色 | 默认启用 **Deep8**，精确 EDID 匹配 |
+| HDMI 4K60 模式准入 | 默认启用 **HDMI600** |
+| HP G4 USB-C 外屏 | 默认启用 **DDI5 SST**；不代表 TB4/MST 修复 |
+| HDMI 4K60 高速握手 | 保留 V3 `-wex-yoga-hdmi2-callsite-safe`，仍需显式开启 |
+| 唤醒诊断 | 新增可选 `-wex-yoga-hdmi2-wake-diag` |
+| 唤醒恢复候选 | 新增可选 `-wex-yoga-hdmi2-wake-recover`，**默认关闭** |
+
+过去的正向开关 `-wex-yoga-edp120-admit`、`-wex-yoga-edp120-wm`、`-wex-yoga-hdmi-edid-deep8`、`-wex-yoga-hdmi600`、`-wex-yoga-tc5-sst` **仍不需要**。
+
+## 这次实验基于真实的 Display Wake 对照
+
+2026-11-21 用户两份 ZIP：
+- `Yoga_HDMI2_DisplayWake_black_wake2_20261121_162700.zip`
+- `Yoga_HDMI2_DisplayWake_recovered60_20261121_163041.zip`
+
+16:19 左右第二次 **Display Sleep / Display Wake** 后，AOC U27P10 灯变黄、无有效画面，macOS 仍识别 4K60。手工切 4K30 未恢复，再切 4K60 重新点亮。黑屏时 `CallsiteLast`：`status=10`、`armedPipe=3`；恢复时 `status=100`、`armedPipe=1`。在两种状态下，HDMI 高速 source bit4/bit0 均已设置。
+
+V3 中的 `status=10` 是 **当前物理 HDMI-B 接收端的 EDID/CTA/SCDC 能力缓存检查失败**，并不等于已经发送了 SCDC NAK。不能仅凭此推断具体哪个字段失效；V4 要先记录真实缓存代次，再受控验证修复候选。
+
+## V4 只读诊断
+
+仅在 `-wex-yoga-hdmi2-callsite-safe` 已成功安装（`CallsiteStatus=5`）时，`-wex-yoga-hdmi2-wake-diag` 才发布：
+
+- `WEXYogaHDMI2WakeDiagEnabled`：是否成功启用；
+- `WEXYogaHDMI2WakeLast`：最新 12×uint64 小端事件；
+- `WEXYogaHDMI2WakeFirst1..16`：前 16 条有界事件；
+- `WEXYogaHDMI2CallsiteLast`：保留最新的 `status=10`（即使调用序号超过 16）。
+
+事件格式：
+
+```text
+[schema=1, sequence, mach_absolute_time, event, connectionGeneration,
+ pipe, pixelClockHz, status, flags, maxTMDSKHz, attemptedGeneration,
+ armedPipe]
+```
+
+事件编号：`1` 原生 EDID 基本块、`2` CTA 扩展块、`3` 能力检查拒绝、`4` 准备一次性恢复、`5` 恢复完成、`6` 恢复事务失败。标志位：bit0 当前端口/基本块可用、bit1 目标 AOC 身份/有效基本块、bit2 本次已读取 CTA、bit3 有上一成功高速会话、bit5 符合恢复候选条件。
+
+日志输出不发送额外 I2C 命令、不改变 HPD 或唤醒策略。诊断增加的 IORegistry 写入本身可能影响启动时序，因此对照实验建议先仅采集一次，无须反复睡眠复现。
+
+## V4 有界恢复候选（严格 opt-in）
+
+`-wex-yoga-hdmi2-wake-recover` **不安装新 Kext Hook、不强制生成模式切换**。它只在原有 V3 `LightUpTMDS` CALL-site **已经执行一次高速 HDMI 模式设置**，而当前 CTA 缓存仍为空时，考虑一次额外的原生 SCDC 重验证。
+
+只允许：V3 的 Callsite Safe 已正常工作；原生 controller owner lock 已持有；同一物理 HDMI-B / A7A0；本次新读取的 128 字节**完整基本 EDID**校验有效、AOC `05E3:2710` 且与**此前一次真实成功 SCDC 高速会话**的基本 EDID 字节完全相同；该成功会话此前已有有效的 SCDC/高速 CTA；本次尚未收到 CTA；本次连接代次此前未尝试恢复；GPU 电源/时钟状态检查全部通过。
+
+满足后，把先前**已由本机成功高速事务验证过**的 CTA 链路上限用于这**一次** SCDC read/write/readback；读回仍由原生控制器执行，遵守连接代次锁。如果读回失败，不设置 source flags、不重试。成功用状态码 `110` 表示，V4 才允许按原 V3 `100` 的逻辑设置 source bit4/bit0。
+
+**不允许**在新 EDID 不同、目标接收端改变、没有此前成功会话、CTA 已重新读取、当前高速时序不支持、原生 owner lock 缺失或当前硬件有故障时继续。不会禁用 `status=10` 检查，不会绕过 `prepareSCDC`，也不会修改 Display13 PHY/PLL/HPD/睡眠电源管理。
+
+**局限**：此候选只有在系统已经请求原生高速 modeset 且符合非常具体的“新基本块先于 CTA”竞态时才可能修复黑屏。如果 V3 的 `status=10` 由其他原因引起，V4 仍会拒绝并仅记录，不能保证自动点亮；这是刻意设计的安全边界。
+
+## 建议的两轮实验参数（独立测试 EFI）
+
+**A：仅添加诊断，不启用恢复候选**
+
+```text
+-v keepsyms=1 -vi2c-force-polling -ibtcompatbeta -allow3d -disablegfxfirmware -igfxdvmt -wex-yoga-hdmi2-callsite-safe -wex-yoga-hdmi2-wake-diag
+```
+
+**B：只有 A 的基础运行成功并有可用恢复 EFI，再额外启用恢复**
+
+```text
+-v keepsyms=1 -vi2c-force-polling -ibtcompatbeta -allow3d -disablegfxfirmware -igfxdvmt -wex-yoga-hdmi2-callsite-safe -wex-yoga-hdmi2-wake-diag -wex-yoga-hdmi2-wake-recover
+```
+
+不要一开始就上 B；不要在黑屏状态反复连续切 30/60Hz，不能认为测试软件全绿就是实机已经解决。
+
+只读取证（无需改 EFI）：
+
+```bash
+ioreg -p IOService -l -w0 | grep -E 'WEXYogaHDMI2(Wake|Callsite|Source)'
+system_profiler SPDisplaysDataType
+pmset -g log | grep -E 'Display is turned|DarkWake|Wake|Sleep'
+```
+
+如果曾安装过独立诊断脚本，也可以复用 `Yoga_HDMI2_DisplayWake_Diag.command` 采集黑屏/正常状态 ZIP；上传前检查系统序列号等隐私信息。
+
+## 构建与验收
+
+CI `.github/workflows/yoga-unified-wake-v4.yml`：先精确生成 V3 → 套用 Unified RC1 默认配置 → 应用 V4，随后检查 V3 TC-before-CALL 的 Metal 安全顺序、SST/Deep8/eDP/HDMI600 的默认条件、V4 纯策略单元测试、源代码守卫、WhateverXe 原版回归及 RELEASE 打包。
+
+通过 CI **仅代表软件检查**。实机至少需要 Metal/1536 MB、3K120、AOC 4K30/4K60、HP G4 SST、启动阶段显示是否回归以及显示器关屏/唤醒两轮的状态对照。
+
+- [V4 GitHub Actions 工作流](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/workflows/yoga-unified-wake-v4.yml)
+- [Unified RC1 已成功的构建](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44881256951)
+- [原始 V3 基线](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-yoga-hdmi2-scdc-gmbus-wait-v3)
+
+**不动原 `main`、Unified RC1、V3、macOS Graphics 0.4.4 和现有日常 EFI。** 新版先保留为独立研究分支；出现异常直接回退原 USB/EFI。
