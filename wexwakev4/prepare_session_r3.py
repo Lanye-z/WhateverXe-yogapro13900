@@ -84,10 +84,10 @@ def patch_header(s):
     # At a low speed native caller, the formerly-armed token may be gone
     # solely due to an EDID re-read; only allow a narrow, proven exception.
     old_low="""    if(allowWrite && pixelHz<=YogaHDMI2::HighTMDSHz &&
-       __atomic_load_n(&yogaHDMI2ArmedPipe,__ATOMIC_ACQUIRE)!=pipe)return 52;"""
+       __atomic_load_n(&yogaHDMI2ArmedPipe,__ATOMIC_ACQUIRE)>=3U)return 52;"""
     new_low="""    bool lowReconcile=false;
     if(allowWrite && pixelHz<=YogaHDMI2::HighTMDSHz &&
-       __atomic_load_n(&yogaHDMI2ArmedPipe,__ATOMIC_ACQUIRE)!=pipe) {
+       __atomic_load_n(&yogaHDMI2ArmedPipe,__ATOMIC_ACQUIRE)>=3U) {
         lowReconcile=yogaHDMI2MayReconcileLow(port,path,pipe,lock);
         if(!lowReconcile)return 52;
     }"""
