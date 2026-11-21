@@ -1,3 +1,13 @@
+## R5: Dynamic HDMI FB Wake — 2026-11-21
+
+- **Independent experiment branch**: [V5 dynamic HDMI framebuffer binding](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-yoga-hdmi2-wake-v5)
+- **CI PASS**: [GitHub Actions run 44912621809](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44912621809). RELEASE/Compat, original upstream **221/221** regressions and ZIP integrity passed at commit `1124d274f1e3404c4c4926131bb2b50fde65214d`.
+- **Download exact test artifact**: [Yoga-0.8.3-UNIFIED-WAKE-V5-DYNAMIC-FB-R5A-TEST](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44912621809/artifacts/14710821288) (inside: `WhateverXe_0.8.3_YOGA_UNIFIED_WAKE_V5_DYNAMIC_FB_R5A_TEST.zip`).
+- **Implementation**: actual proven HDMI-B FB1/FB2 native Doze/Wake object identity; matching FB1/FB2 4K30 fallback. No forced HPD or modeset. `status=110` remains SCDC readback only, *not* physical picture confirmation.
+- **Safety**: separate test EFI and backup; do not replace daily stable boot without A/B testing. Full details: [wexwakev5/README.md](wexwakev5/README.md).
+
+---
+
 # WhateverXe 0.8.3 — Yoga Unified HDMI2 Wake V4
 
 > **V4 独立实验分支，基于精简启动参数的 Unified RC1（不是原始 V3）**。已有内屏 120Hz、AOC Deep8、HDMI600、HP G4 SST 默认启用；V3 的 `-wex-yoga-hdmi2-callsite-safe` 仍为显式开关。
