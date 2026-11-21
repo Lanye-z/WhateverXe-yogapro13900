@@ -1,3 +1,15 @@
+# WhateverXe 0.8.3 — Yoga Unified HDMI2 Wake V4
+
+> **V4 独立实验分支，基于精简启动参数的 Unified RC1（不是原始 V3）**。已有内屏 120Hz、AOC Deep8、HDMI600、HP G4 SST 默认启用；V3 的 `-wex-yoga-hdmi2-callsite-safe` 仍为显式开关。
+>
+> V4 新增 `-wex-yoga-hdmi2-wake-diag`（诊断）和 `-wex-yoga-hdmi2-wake-recover`（严格限次恢复候选）。**两项默认均关闭**，不得认为 V4 已经通过实机唤醒验证。用于复盘第二次 Display Wake 后 AOC 4K60 黑屏、随后手动 30→60Hz 可恢复的问题。
+>
+> [V4 机制、参数和回退说明](wexwakev4/README.md) · [构建工作流](.github/workflows/yoga-unified-wake-v4.yml) · [原 Unified RC1](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/integration/wex-0.8.3-yoga-unified-rc1)
+
+---
+
+## 以下保留来自 Unified RC1 的已验证基线与整合说明
+
 # WhateverXe 0.8.3 — Yoga Pro 14s IRH8 Unified RC1
 
 > **2026-11-21 当前集成候选版（一个 Kext、一套源码）**。目标硬件：Lenovo Yoga Pro 14s IRH8（82Y7），Intel Iris Xe `8086:A7A0`；实机系统 macOS 26.7.1（25G241），WhateverXe Graphics 0.4.4。**不等于已通过长期稳定性验证的正式日常版。**
