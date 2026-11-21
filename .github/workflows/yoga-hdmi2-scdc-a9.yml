@@ -1,4 +1,4 @@
-name: Yoga HDMI2 SCDC A9 read-address hypothesis CI (NO hardware proof)
+name: Yoga HDMI2 SCDC GMBUS forensics (A9 rejected; NO HDMI2 fix)
 on:
   push:
     branches: [experiment/wex-0.8.3-yoga-hdmi2-scdc-read-a9]
@@ -114,7 +114,7 @@ jobs:
           /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$KEXT/Contents/Info.plist" | grep -qx '0.8.3'
           /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$KEXT/Contents/Info.plist" | grep -qx 'org.b00t0x.WhateverXe'
           mkdir -p dist
-          ditto -c -k --keepParent "$KEXT" dist/WhateverXe_0.8.3_HDMI2_SCDC_A9_UNVERIFIED.zip
+          ditto -c -k --keepParent "$KEXT" dist/WhateverXe_0.8.3_HDMI2_GMBUS_FORENSICS_UNCHANGED.zip
           git -C Source diff -- WhateverXe tests/fixtures/boot_argument_names.json > dist/EXACT_PATCH.diff
           grep -Fq -- '-wex-yoga-hdmi2-callsite-safe' dist/EXACT_PATCH.diff
           grep -Fq -- '-wex-yoga-hdmi2-callsite-observe' dist/EXACT_PATCH.diff
@@ -126,10 +126,10 @@ jobs:
           cp wex4k60/collect.sh dist/collect.sh
           cp Source/build/RELEASE/build-manifest.json dist/
           (cd dist && shasum -a 256 WhateverXe*.zip > SHA256SUMS)
-          unzip -t dist/WhateverXe_0.8.3_HDMI2_SCDC_A9_UNVERIFIED.zip
+          unzip -t dist/WhateverXe_0.8.3_HDMI2_GMBUS_FORENSICS_UNCHANGED.zip
       - uses: actions/upload-artifact@v4
         with:
-          name: Yoga-0.8.3-HDMI2-SCDC-A9-UNVERIFIED
+          name: Yoga-0.8.3-HDMI2-GMBUS-FORENSICS-UNCHANGED
           path: dist/*
           retention-days: 30
           if-no-files-found: error
