@@ -144,7 +144,7 @@ uint32_t XE::yogaHDMI2Callsite(void *controller,void *rawFB,void *rawPath,const 
     {
         yogaHDMI2CallsiteSafe=yogaHDMI2SafeRequested;
         yogaHDMI2CallsiteObserve=yogaHDMI2ObserveRequested;
-        uint32_t state=0; // 0 off,1 unready,2 opcode mismatch,3 unreachable,4 patch fail,5 installed
+        uint32_t state=0; // 0 off,1 gate,2 mismatch,3 out-of-range,4 fail,5 PATCHED,6 PASSIVE ONLY
         if(yogaHDMI2CallsiteSafe || yogaHDMI2CallsiteObserve) {
             state=1;
             const uint8_t originalCall[] {0xE8,0x67,0x0B,0x00,0x00};
@@ -153,6 +153,11 @@ uint32_t XE::yogaHDMI2Callsite(void *controller,void *rawFB,void *rawPath,const 
             if(yogaHDMI2NativeI2C && ready && size>targetOffset+16 &&
                !memcmp(reinterpret_cast<const void *>(address+callOffset),
                        originalCall,sizeof(originalCall))) {
+                if(yogaHDMI2CallsiteObserve) {
+                    // True observer: validate donor code but NEVER rewrite it.
+                    // V2's previous 'observe' still routed the native CALL.
+                    state=6;
+                } else {
                 state=3;
                 // Never emit an out-of-range x86 rel32 displacement.
                 const int64_t relative=static_cast<int64_t>(reinterpret_cast<uintptr_t>(yogaHDMI2Callsite))-
@@ -169,14 +174,16 @@ uint32_t XE::yogaHDMI2Callsite(void *controller,void *rawFB,void *rawPath,const 
                     patcher.clearError();
                     if(state!=5)yogaHDMI2OriginalLightUp=0;
                 }
+                }
             } else state=2;
-            if(state!=5) {
+            if(state!=5 && state!=6) {
                 yogaHDMI2CallsiteSafe=false;yogaHDMI2CallsiteObserve=false;
                 yogaHDMI2SafeRequested=false;yogaHDMI2ObserveRequested=false;
             }
             auto root=IORegistryEntry::getRegistryRoot();
             root->setProperty("WEXYogaHDMI2CallsiteStatus",state,32);
             root->setProperty("WEXYogaHDMI2CallsiteReady",state==5);
+            root->setProperty("WEXYogaHDMI2PassiveReady",state==6);
             root->setProperty("WEXYogaHDMI2CallsiteWriteEnabled",yogaHDMI2CallsiteSafe);
         }
     }
