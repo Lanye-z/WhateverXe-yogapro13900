@@ -20,12 +20,12 @@ int main() {
         t=q; t.newGeneration=false; assert(!mayRecover(t));
         t=q; t.alreadyAttempted=true; assert(!mayRecover(t));
         t=q; t.postBootMature=false; assert(!mayRecover(t));
-        t=q; t.observedLongHDMIOff=false; assert(!mayRecover(t));
+        t=q; t.nativeDozeWakeVerified=false; assert(!mayRecover(t));
         t=q; t.preservedCapsValid=false; assert(!mayRecover(t));
         t=q; t.preservedCapsSCDC=false; assert(!mayRecover(t));
         t=q; t.preservedMaxKHz=340000; assert(!mayRecover(t));
         t=q; t.preservedMaxKHz=600001; assert(!mayRecover(t));
     }
-    std::puts("PASS: V4 wake recovery is one-time, same EDID, high-TMDS, opt-in and fail-closed");
+    std::puts("PASS: V4 R2 boot-gated native Doze-to-Wake, same EDID, one-time fail-closed");
     return 0;
 }
