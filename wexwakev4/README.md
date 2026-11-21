@@ -1,5 +1,9 @@
 # WhateverXe 0.8.3 — Yoga Unified Wake V4（2026-11-21）
 
+> **重要：B 组唤醒恢复候选已暂停实机使用（2026-11-21）**。用户报告添加 `-wex-yoga-hdmi2-wake-recover` 后三块显示器全部熄灭，系统仍能远程访问。尚未取得该次的完整诊断日志，也未确认是启动时立即发生还是经过 Display Sleep/Wake 后发生；不能宣称根因已确定。**请不要再使用 B 组参数，不要将 V4 恢复逻辑默认开启。** 先通过远程诊断采集 `after_wake`，然后删除该参数并恢复到原 A 组或原 V3/Unified RC1 EFI。先前 221/221 软件测试通过不代表内核显示路径的实机安全性。
+
+
+
 **实验候选，不是已实机确认的唤醒修复。** 本分支从已通过 CI 的 [Yoga Unified RC1](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/integration/wex-0.8.3-yoga-unified-rc1) 的 **提交 `72ee3bca81c17f97382707ddf51b6818d295a3d7`** 派生。仅新增 `wexwakev4/` 的最小补丁和独立 CI；未覆盖 Unified RC1、原 V3、旧 `main` 或任何现有 EFI。
 
 ## 功能基线：一份 Kext，不恢复旧启动参数
@@ -67,7 +71,7 @@ V3 中的 `status=10` 是 **当前物理 HDMI-B 接收端的 EDID/CTA/SCDC 能�
 -v keepsyms=1 -vi2c-force-polling -ibtcompatbeta -allow3d -disablegfxfirmware -igfxdvmt -wex-yoga-hdmi2-callsite-safe -wex-yoga-hdmi2-wake-diag
 ```
 
-**B：只有 A 的基础运行成功并有可用恢复 EFI，再额外启用恢复**
+**B：已出现三屏全灭实机回归，暂停启用（仅保留历史记录）**
 
 ```text
 -v keepsyms=1 -vi2c-force-polling -ibtcompatbeta -allow3d -disablegfxfirmware -igfxdvmt -wex-yoga-hdmi2-callsite-safe -wex-yoga-hdmi2-wake-diag -wex-yoga-hdmi2-wake-recover
