@@ -62,12 +62,20 @@ static bool yogaHDMI2CallsiteSafe {}, yogaHDMI2CallsiteObserve {};
 static volatile uint32_t yogaHDMI2CallsiteCalls {};
 '''
     s=once(s,flag,flag+globals,"V2 globals")
+    hpp=source/"WhateverXe/kern_xe.hpp"
+    h=hpp.read_text()
+    h=once(h,
+      '    bool yogaHDMI2ObserveRequested {false};\n};',
+      '    bool yogaHDMI2ObserveRequested {false};\n'
+      '    static uint32_t yogaHDMI2Callsite(void *,void *,void *,const void *);\n};',
+      "single CALL shim declaration inside XE")
+    hpp.write_text(h)
     callsite=r'''
 // Native 25G241: hwSetMode +0x4FFB6 calls LightUpTMDS +0x50B22.
 // Unlike a global function hook, we patch precisely that one caller
 // instruction and invoke the still-unaltered original function directly.
 // Do not call C++ virtual methods or install a second TMDS route.
-static uint32_t yogaHDMI2Callsite(void *controller,void *rawFB,void *rawPath,const void *rawTiming) {
+uint32_t XE::yogaHDMI2Callsite(void *controller,void *rawFB,void *rawPath,const void *rawTiming) {
     using Native=uint32_t (*)(void *,void *,void *,const void *);
     const auto original=reinterpret_cast<Native>(yogaHDMI2OriginalLightUp);
     if(!original)return kIOReturnNotReady; // never pretend success
@@ -142,7 +150,7 @@ static uint32_t yogaHDMI2Callsite(void *controller,void *rawFB,void *rawPath,con
             const uint8_t originalCall[] {0xE8,0x67,0x0B,0x00,0x00};
             constexpr uintptr_t callOffset=0x4FFB6;
             constexpr uintptr_t targetOffset=0x50B22;
-            if(status==3 && size>targetOffset+16 &&
+            if(yogaHDMI2NativeI2C && ready && size>targetOffset+16 &&
                !memcmp(reinterpret_cast<const void *>(address+callOffset),
                        originalCall,sizeof(originalCall))) {
                 state=3;
@@ -190,7 +198,7 @@ static uint32_t yogaHDMI2Callsite(void *controller,void *rawFB,void *rawPath,con
     assert 'WEXYogaHDMI2CallsiteLast' in s
     assert 'const uint32_t status=55' in s
     assert s.count('yogaHDMI2TryPrepare(')==1
-    assert s.count('yogaHDMI2Callsite(')==1
+    assert s.count('XE::yogaHDMI2Callsite(')==1
     assert 'orgDisplay13HDMI2TMDS' not in s
     subprocess.run(["git","-C",str(source),"diff","--check"],check=True)
     print("PASS V2: V1 unsafe WM SCDC path retired")
