@@ -33,13 +33,27 @@ assert "yogaHDMI2WakeTimeGuard(pipe)" in h
 assert "absolutetime_to_nanoseconds(now-first,&firstNs)" in h
 assert "firstNs>=90000000000ULL" in h and "offNs>=3000000000ULL" in h
 assert "eligible.postBootMature=bool(wakeTimeBits&1U);" in h
-assert "eligible.observedLongHDMIOff=bool(wakeTimeBits&2U);" in h
+assert "eligible.nativeDozeWakeVerified=bool(wakeTimeBits&2U);" in h
 assert "WEXYogaHDMI2WakeRejectLast" in h
 assert "WEXYogaHDMI2WakeActionLast" in h
-assert "reg==0x60400U+0x1000U*knownPipe" in s
-assert "!(value&0x80000000U)" in s
-assert "yogaHDMI2WakeObservedHDMIOffAt" in s
-assert "yogaHDMI2WakeObservedOffPipe" in s
+# R2 completely removes the R1 speculative output-off MMIO observer.
+assert "reg==0x60400U+0x1000U*knownPipe" not in s
+assert "yogaHDMI2WakeObservedHDMIOffAt" not in s
+assert "yogaHDMI2WakeObservedOffPipe" not in s
+assert "yogaHDMI2WakeNativeFB1DozeAt" in h
+assert "yogaHDMI2WakeInNativeFB1Wake" in h
+assert "WEX_HDMI2_NATIVE_POWER_R2" in h
+native_power=(root/"WhateverXe/kern_display13_framebuffer_power.inc").read_text()
+assert "WEXYogaHDMI2WakePowerLast" in native_power
+assert native_power.count("uint32_t XE::wrapDisplay13SetPowerState(")==1
+assert native_power.count("FunctionCast(wrapDisplay13SetPowerState,callbackXE->orgDSIAttributes[2])(fb,state);")==1
+assert "yogaPowerPrior==1U" in native_power
+assert "yogaPowerPrior==2U" in native_power
+assert "state==2U" in native_power and "state==1U" in native_power
+assert "yogaPowerWindow" in native_power
+assert "#if defined(WEX_HDMI2_NATIVE_POWER_R2)" in native_power
+assert "yogaHDMI2WakeNativeFB1DozeAt" in native_power
+assert "yogaHDMI2WakeInNativeFB1Wake" in native_power
 
 assert "yogaHDMI2WakeCTASeen && yogaHDMI2WakeBaseExact" in h
 assert "memcmp(yogaHDMI2WakeCurrentBase,yogaHDMI2WakeProven.base,128)" in h
@@ -65,6 +79,6 @@ assert "setProperty" not in ddc  # emitter called only after lock release
 assert h.index("IOSimpleLockUnlock(lock);\n    yogaHDMI2WakeRecord") > h.index("static inline void yogaHDMI2ObserveDDC")
 assert "patcher.routeBlock" not in h
 assert "WEXYogaHDMI2Callsite" in s
-print("PASS: V4 exact sink + fresh base + one attempt; native owner/SCDC unchanged")
+print("PASS: V4 R2 real FB1 Doze->Wake required + exact sink + native SCDC transaction")
 print("PASS: optional V4 wake controls require V3 safe and fully installed callsite")
 print("PASS: Unified RC1 defaults, Metal TC ordering and DDI5 SST retained")
