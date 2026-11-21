@@ -131,7 +131,7 @@ def patch_candidate(header):
     caps=yogaHDMI2Live.caps;generation=yogaHDMI2Live.generation;
     IOSimpleLockUnlock(lock);
     if(!same || !caps.valid || !caps.hdmi || !caps.scdc ||
-        caps.maxKHz<=340000)return 10;'''
+       caps.maxKHz<=340000)return 10;'''
     after=r'''    Display13HDMI::Caps caps;uint32_t generation;
     bool wakeCandidate=false;
     uint32_t wakeFlags=0,wakeAttemptGeneration=0;
