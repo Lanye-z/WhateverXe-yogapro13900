@@ -1,5 +1,14 @@
 # WhateverXe for Lenovo Yoga Pro 14s IRH8 (82Y7) — integrated A7A0 test build
 
+> **2026-11-21 — newer WhateverXe 0.8.3 research branches (NOT merged into this main)**  
+> This `main` branch remains the older **0.7.0/E1/Video C experimental integration**. Do not use its artifact as a replacement for the user's currently tested 0.8.3 / WhateverXe Graphics 0.4.4 EFI.
+>
+> - **[Yoga Unified RC1 — ONE integrated 0.8.3 Kext](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/integration/wex-0.8.3-yoga-unified-rc1)**: eDP 120Hz = *admit + wm*; AOC color = *Deep8*; HDMI 4K60 = *HDMI600 + V3 Callsite Safe* (plus Deep8 for known-good AOC color); HP G4 USB-C output = *TC5 SST*. Five verified features are automatically enabled, but `-wex-yoga-hdmi2-callsite-safe` is **still explicitly opt-in**. [Unified RC1 CI 221/221](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44881256951), **not yet independently validated as an integrated build on the real machine**.
+> - **[HDMI2 V3 original experimental branch](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-yoga-hdmi2-scdc-gmbus-wait-v3)**: positive boot-args still required for the eDP, Deep8, HDMI600, TC5 SST and V3 callsite patches; AOC OSD **4K60** with Metal 2 and a successful return to 4K30 was observed on the Yoga. Startup multi-display flicker and long-term reliability remain open.
+>
+> The two branches above are **not** a merge of the main Video C, old native RGB8_STRICT, older global HDMI2 route experiments, or USB4/Thunderbolt NHI repair. Keep the existing independently bootable fallback EFI.
+
+
 > **Newer WhateverXe 0.8.3 internal eDP results (2026-11-18; NOT merged here):**
 > The `main` branch below remains the **separate earlier 0.7.0-based
 > HDMI/RGB8/Video C experimental integration**, not the proven 0.8.3 3K120
