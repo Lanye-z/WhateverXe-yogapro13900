@@ -29,6 +29,18 @@ for flag in ["-wex-yoga-disable-integrated","-wex-yoga-disable-edp120-admit",
 assert "YogaHDMI2Wake::mayRecover(eligible)" in h
 assert "capabilitiesMissing && YogaHDMI2Wake::mayRecover(eligible)" in h
 assert "yogaHDMI2WakeProven.attemptedGeneration=generation" in h
+assert "yogaHDMI2WakeTimeGuard(pipe)" in h
+assert "absolutetime_to_nanoseconds(now-first,&firstNs)" in h
+assert "firstNs>=90000000000ULL" in h and "offNs>=3000000000ULL" in h
+assert "eligible.postBootMature=bool(wakeTimeBits&1U);" in h
+assert "eligible.observedLongHDMIOff=bool(wakeTimeBits&2U);" in h
+assert "WEXYogaHDMI2WakeRejectLast" in h
+assert "WEXYogaHDMI2WakeActionLast" in h
+assert "reg==0x60400U+0x1000U*knownPipe" in s
+assert "!(value&0x80000000U)" in s
+assert "yogaHDMI2WakeObservedHDMIOffAt" in s
+assert "yogaHDMI2WakeObservedOffPipe" in s
+
 assert "yogaHDMI2WakeCTASeen && yogaHDMI2WakeBaseExact" in h
 assert "memcmp(yogaHDMI2WakeCurrentBase,yogaHDMI2WakeProven.base,128)" in h
 assert "const auto transaction=YogaHDMI2::prepareSCDC(bus,plan,caps.scdc);" in h
