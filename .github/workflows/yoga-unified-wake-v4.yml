@@ -1,4 +1,4 @@
-name: Yoga 0.8.3 V4 native FB1 PowerWake R2 (EXPERIMENT)
+name: Yoga 0.8.3 V4 HDMI2 Session Recovery R3 (EXPERIMENT)
 on:
   push:
     branches: [experiment/wex-0.8.3-yoga-hdmi2-wake-v4]
@@ -118,12 +118,16 @@ jobs:
               assert 'checkKernelArgument("'+old+'")' not in s
           print("PASS unified default-on guards, disable switches, HDMI2 V3 still opt-in")
           PY
-          python3 -m py_compile wexwakev4/prepare.py wexwakev4/prepare_powerwake.py wexwakev4/test_source.py
+          python3 -m py_compile wexwakev4/prepare.py wexwakev4/prepare_powerwake.py wexwakev4/prepare_session_r3.py wexwakev4/test_source.py
           clang++ -std=c++17 -Wall -Wextra -Werror -O1 \
             -I wexwakev4 wexwakev4/test_wake_policy.cpp -o /tmp/yoga_wake_policy
           /tmp/yoga_wake_policy
+          clang++ -std=c++17 -Wall -Wextra -Werror -O1 \
+            -I wexwakev4 wexwakev4/test_session_policy.cpp -o /tmp/yoga_session_policy
+          /tmp/yoga_session_policy
           python3 wexwakev4/prepare.py Source
           python3 wexwakev4/prepare_powerwake.py Source
+          python3 wexwakev4/prepare_session_r3.py Source
           python3 wexwakev4/test_source.py
           python3 wexhdmi2v2/test_plan.py
           python3 wexhdmi2v2/test_scdc_gmbus_wait.py
@@ -150,7 +154,7 @@ jobs:
           /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$KEXT/Contents/Info.plist" | grep -qx '0.8.3'
           /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$KEXT/Contents/Info.plist" | grep -qx 'org.b00t0x.WhateverXe'
           mkdir -p dist
-          ditto -c -k --keepParent "$KEXT" dist/WhateverXe_0.8.3_YOGA_UNIFIED_WAKE_V4_POWERWAKE_R2_TEST.zip
+          ditto -c -k --keepParent "$KEXT" dist/WhateverXe_0.8.3_YOGA_UNIFIED_WAKE_V4_SESSION_R3_TEST.zip
           git -C Source diff -- WhateverXe tests/fixtures/boot_argument_names.json > dist/EXACT_PATCH.diff
           grep -Fq -- '-wex-yoga-hdmi2-callsite-safe' dist/EXACT_PATCH.diff
           grep -Fq -- '-wex-yoga-hdmi2-callsite-observe' dist/EXACT_PATCH.diff
@@ -161,15 +165,17 @@ jobs:
           strings "$KEXT/Contents/MacOS/WhateverXe" | grep -F -- '-wex-yoga-hdmi2-wake-recover' > /dev/null
           strings "$KEXT/Contents/MacOS/WhateverXe" | grep -F -- 'WEXYogaHDMI2WakeLast' > /dev/null
           strings "$KEXT/Contents/MacOS/WhateverXe" | grep -F -- 'WEXYogaHDMI2WakePowerLast' > /dev/null
+          strings "$KEXT/Contents/MacOS/WhateverXe" | grep -F -- 'WEXYogaHDMI2WakeActionLast' > /dev/null
+          strings "$KEXT/Contents/MacOS/WhateverXe" | grep -F -- 'WEXYogaHDMI2WakeMissingCTAAtGen' > /dev/null || true
           cp wexwakev4/README.md dist/README.md
           cp wex4k60/compare.py dist/compare.py
           cp wex4k60/collect.sh dist/collect.sh
           cp Source/build/RELEASE/build-manifest.json dist/
           (cd dist && shasum -a 256 WhateverXe*.zip > SHA256SUMS)
-          unzip -t dist/WhateverXe_0.8.3_YOGA_UNIFIED_WAKE_V4_POWERWAKE_R2_TEST.zip
+          unzip -t dist/WhateverXe_0.8.3_YOGA_UNIFIED_WAKE_V4_SESSION_R3_TEST.zip
       - uses: actions/upload-artifact@v4
         with:
-          name: Yoga-0.8.3-UNIFIED-WAKE-V4-POWERWAKE-R2-TEST
+          name: Yoga-0.8.3-UNIFIED-WAKE-V4-SESSION-R3-TEST
           path: dist/*
           retention-days: 30
           if-no-files-found: error
