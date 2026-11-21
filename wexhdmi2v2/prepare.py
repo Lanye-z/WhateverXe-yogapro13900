@@ -40,6 +40,12 @@ def main(source,graphics):
     c=once(c,"__atomic_load_n(&yogaHDMI2ArmedPipe,__ATOMIC_ACQUIRE)!=pipe)return 52;",
           "__atomic_load_n(&yogaHDMI2ArmedPipe,__ATOMIC_ACQUIRE)>=3U)return 52;",
           "same-sink low-speed SCDC restoration across pipe changes")
+    # SCDC uses 7-bit slave 0x54 => write address 0xA8, READ address 0xA9.
+    # First safe-mode capture (2026-11-21 14:40) showed 0xA8/0xA8
+    # read attempts failing with kIOReturnNotResponding.
+    # Preserve all locking, bus selection, handshake ordering and native paths.
+    c=once(c,'request.replyAddress=0xA8;', 'request.replyAddress=0xA9;',
+           'SCDC I2C read address bit must be set')
     cand.write_text(c)
     s=cpp.read_text()
     s=once(s,'yogaHDMI2SafeRequested=checkKernelArgument("-wex-yoga-hdmi2-safe");',
