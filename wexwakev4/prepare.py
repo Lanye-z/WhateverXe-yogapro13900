@@ -115,9 +115,9 @@ static inline void yogaHDMI2ObserveDDC(OSObject *port,uint32_t block,
 '''
 def patch_candidate(header):
     header=once(header,
-        "static YogaHDMI2Live yogaHDMI2Live {};\n",
-        "static YogaHDMI2Live yogaHDMI2Live {};\n"+WAKE_STATE,
-        "V4 wake state after live connection")
+        "static volatile uint32_t yogaHDMI2ArmedPipe=3; // 0..2=armed; 3=off\n",
+        "static volatile uint32_t yogaHDMI2ArmedPipe=3; // 0..2=armed; 3=off\n"+WAKE_STATE,
+        "V4 wake state after armed-pipe definition")
     start=header.index("static inline void yogaHDMI2ObserveDDC(")
     end=header.index("// Native controller I2C:",start)
     original=header[start:end]
