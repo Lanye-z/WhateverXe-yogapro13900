@@ -31,7 +31,7 @@ assert "capabilitiesMissing && YogaHDMI2Wake::mayRecover(eligible)" in h
 assert "yogaHDMI2WakeProven.attemptedGeneration=generation" in h
 assert "yogaHDMI2WakeTimeGuard(pipe)" in h
 assert "absolutetime_to_nanoseconds(now-first,&firstNs)" in h
-assert "firstNs>=90000000000ULL" in h and "offNs>=3000000000ULL" in h
+assert "firstNs>=90000000000ULL" in h and "dozeNs>=3000000000ULL" in h
 assert "eligible.postBootMature=bool(wakeTimeBits&1U);" in h
 assert "eligible.nativeDozeWakeVerified=bool(wakeTimeBits&2U);" in h
 assert "WEXYogaHDMI2WakeRejectLast" in h
