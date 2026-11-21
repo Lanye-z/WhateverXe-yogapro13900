@@ -65,8 +65,10 @@ def candidate(s):
     return s
 
 def session_policy(s):
-    return once(s,'knownPipe1','knownHDMIPipe',
-                "rename stale static-pipe policy field")
+    # One declaration and one use in mayReconcileLow; both must be migrated.
+    if s.count('knownPipe1')!=2:
+        raise RuntimeError("R5 session policy has unexpected pipe-field layout")
+    return s.replace('knownPipe1','knownHDMIPipe')
 
 def native_power(s):
     s=once(s,
