@@ -1,3 +1,13 @@
+# ⚠️ 2026-11-21 实机严重回归：V2 CALLSITE 禁止继续使用
+
+**用户实机报告：** 未执行 observe 预检，直接用 `-wex-yoga-hdmi2-callsite-safe` 启动 V2 后，**核显硬件加速再次丢失，仅内屏亮，机身 HDMI 和扩展坞显示器不亮**。这与此前仅启用旧版 `LightUpTMDS` route-only 就丢失 Metal 的回归高度相似。**V2 标记为 REJECTED / UNSAFE，撤回所有实机测试建议；不要用 `-wex-yoga-hdmi2-callsite-observe` 进行第二次试验，因为它也会修改同一原生 CALL 指令。**
+
+**优先恢复：** 使用先前验证成功的完整 EFI / WhateverXe.kext，移除所有 `-wex-yoga-hdmi2-callsite-safe`、`-wex-yoga-hdmi2-callsite-observe` 参数；不在运行中替换 kext、不重试 4K60。保存数据正常关机后用安全 EFI 启动。若当前内屏仍可操作，可选择性只读获取 `WEXYogaHDMI2CallsiteStatus`、`WEXYogaHDMI2CallsiteLast`、`kmutil showloaded` 和 `system_profiler SPDisplaysDataType`，但**不得延误回退**。
+
+**已核实的代码风险，不当作定因：** V2 的 `prepare.py` 在 opt-in 时用 `patcher.routeBlock` 覆写 Apple framebuffer 镜像 `+0x4FFB6` 的五字节 CALL；即使模式仍为 4K30，该指令改写也已生效。V2 在 `yogaHDMI2ArmedPipe=3` 的正常低速路径会拒绝新增 SCDC，因此**不能把本次启动回归归咎于已经成功进行高速 SCDC 事务**。仍需当次 IORegistry 和已加载模块信息才能判断补丁是否真正生效以及 Metal 失效环节。221/221 软件测试全绿不代表内核二进制热修改安全。本实验包不应作为可部署的修复。
+
+---
+
 # Yoga A7A0 HDMI2 V2：单调用点原生协商（实验；不可作为生产修复）
 2026-11-21
 
