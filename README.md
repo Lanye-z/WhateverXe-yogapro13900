@@ -1,3 +1,14 @@
+## R5-Clamshell — opt-in lid-epoch safe guard (CI PASS, 2026-11-22)
+
+- [Branch: experiment/wex-0.8.3-yoga-r5-clamshell-guard](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-yoga-r5-clamshell-guard)
+- [Successful pinned CI run 45000123167](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/45000123167) on commit `824293f6a406def77767aa815fe9f6e8bf41a649`; native RELEASE/Compat, tests 221/221, ZIP integrity/upload passed
+- [Download experimental Kext artifact](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/45000123167/artifacts/14745059958) containing `WhateverXe_0.8.3_YOGA_R5_CLAMSHELL_GUARD_TEST.zip`
+- [Exact patch mechanism, diagnostic schema and rollback plan](wexclamshell/README.md)
+- Only enabled when BOTH `-wex-yoga-hdmi2-wake-recover` and new `-wex-yoga-hdmi2-clamshell-guard` are set; otherwise original R5 behavior is unchanged. Physical lid change during HDMI Doze denies *cached* SCDC wake; native display and HPD paths remain untouched.
+- This is a **hardware-unverified hypothesis**, not a confirmed fix. Test on a backup EFI with working SSH/rollback. Do not replace daily R5-B before validation.
+
+---
+
 ## R5: Dynamic HDMI FB Wake — 2026-11-21
 
 - **Independent experiment branch**: [V5 dynamic HDMI framebuffer binding](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-yoga-hdmi2-wake-v5)
