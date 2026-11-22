@@ -112,8 +112,8 @@ def candidate(s):
        YogaHDMI2SCDCI2CTrace *trace=nullptr) {''',
         'optional diagnostic parameter')
     s=once(s,
-        '''        generation,reinterpret_cast<YogaHDMI2Bus::Native>(yogaHDMI2NativeI2C)};''',
-        '''        generation,reinterpret_cast<YogaHDMI2Bus::Native>(yogaHDMI2NativeI2C),trace};''',
+        'reinterpret_cast<YogaHDMI2Bus::Native>(yogaHDMI2NativeI2C)',
+        'reinterpret_cast<YogaHDMI2Bus::Native>(yogaHDMI2NativeI2C),trace',
         'attach trace to same unmodified native bus')
     return s
 
