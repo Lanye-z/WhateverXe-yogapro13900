@@ -33,7 +33,7 @@ static volatile uint32_t yogaHDMI2ClamshellDozeLid {2U};
 static volatile uint32_t yogaHDMI2ClamshellWakeLid {2U};
 static volatile uint32_t yogaHDMI2ClamshellTraceSeq {};
 static inline uint32_t yogaHDMI2ClamshellReadLid() {
-    auto *root=IOService::getPMRootDomain();
+    // IOPMrootDomain is a single-inheritance IOService subclass in XNU.\n    // The pinned SDK exposes its accessor but not its private class header.\n    auto *root=reinterpret_cast<IOService *>(IOService::getPMRootDomain());
     if(!root)return 2U;
     auto *state=OSDynamicCast(OSBoolean,root->getProperty("AppleClamshellState"));
     return state?(state->getValue()?1U:0U):2U;
@@ -45,7 +45,7 @@ def patch_header(s):
         '#include "kern_yoga_hdmi2_dynamic_policy.hpp"',
         '#include "kern_yoga_hdmi2_dynamic_policy.hpp"\n'
         '#include "kern_yoga_hdmi2_clamshell_guard.hpp"\n'
-        '#include <IOKit/pwr_mgt/IOPMrootDomain.h>\n'
+        '#include <IOKit/IOService.h>\n'
         '#include <libkern/c++/OSBoolean.h>',
         'isolated clamshell header')
     s=once(s,
