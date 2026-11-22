@@ -1,3 +1,13 @@
+## R5.1 SCDC 0x01 native-I2C diagnosis — CI PASS (2026-11-22)
+
+- [Isolated R5.1 experiment source](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-yoga-hdmi2-scdc-r51)
+- [Successful GitHub Actions run 44987592045](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44987592045): RELEASE/Compat, 221/221 upstream tests, ZIP integrity and artifact upload passed for commit `7ab626e3eeec9e4645668dd6f38155f51b1ce3c8`.
+- [Download R5.1 test artifact](https://github.com/Lanye-z/WhateverXe-yogapro13900/actions/runs/44987592045/artifacts/14740672092); contains `WhateverXe_0.8.3_YOGA_UNIFIED_WAKE_R51_SCDC_TRACE_TEST.zip`.
+- This version **adds diagnosis only**, preserving R5-A dynamic FB wake, R4 one-shot SCDC readback, all other display paths. It does not add retries, delays, HPD or modeset and is **not** yet a proven wake reliability fix.
+- [R5.1 diagnostic schema and safe testing guidance](wexwakev51/README.md).
+
+---
+
 ## R5: Dynamic HDMI FB Wake — 2026-11-21
 
 - **Independent experiment branch**: [V5 dynamic HDMI framebuffer binding](https://github.com/Lanye-z/WhateverXe-yogapro13900/tree/experiment/wex-0.8.3-yoga-hdmi2-wake-v5)
