@@ -33,7 +33,8 @@ static volatile uint32_t yogaHDMI2ClamshellDozeLid {2U};
 static volatile uint32_t yogaHDMI2ClamshellWakeLid {2U};
 static volatile uint32_t yogaHDMI2ClamshellTraceSeq {};
 static inline uint32_t yogaHDMI2ClamshellReadLid() {
-    // IOPMrootDomain is a single-inheritance IOService subclass in XNU.\n    // The pinned SDK exposes its accessor but not its private class header.\n    auto *root=reinterpret_cast<IOService *>(IOService::getPMRootDomain());
+    // IOPMrootDomain is an IOService subclass; SDK omits private header.
+    auto *root=reinterpret_cast<IOService *>(IOService::getPMRootDomain());
     if(!root)return 2U;
     auto *state=OSDynamicCast(OSBoolean,root->getProperty("AppleClamshellState"));
     return state?(state->getValue()?1U:0U):2U;
