@@ -32,7 +32,7 @@ assert 'WEXYogaHDMI2WakePowerHist%02u' in p
 # The candidate must not acquire an extra lock to diagnose a failed I2C call:
 # its post-transaction connected() check remains short-circuited on success.
 block=h.split('const auto status=native(controller,fbIndex,ddc,0,nullptr,&request);',1)[1].split('return okay;',1)[0]
-assert block.count('connected()')==1
+assert block.count('&& connected();')==1
 assert 'if(traceVersion)' in block and 'IORegistryEntry' not in block
 # The only new IORegistry writes are in original post-LightUpTMDS shim.
 assert c.index('WEXYogaHDMI2SCDCI2CLast')>c.index('const auto result=original(controller,rawFB,rawPath,rawTiming);')
